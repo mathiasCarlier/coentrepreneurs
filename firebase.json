@@ -1,0 +1,39 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "firebase-coentrepreneurs-bts",
+          "appId": "1:744459624156:android:8b754bc3cf0720205ede19",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "firebase-coentrepreneurs-bts",
+          "configurations": {
+            "android": "1:744459624156:android:8b754bc3cf0720205ede19",
+            "ios": "1:744459624156:ios:7843ded56a34512e5ede19",
+            "macos": "1:744459624156:ios:7843ded56a34512e5ede19",
+            "web": "1:744459624156:web:ed6bdf2f1d1c10f95ede19",
+            "windows": "1:744459624156:web:c4b4d64a0a06fbbc5ede19"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

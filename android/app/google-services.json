@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "744459624156",
+    "project_id": "firebase-coentrepreneurs-bts",
+    "storage_bucket": "firebase-coentrepreneurs-bts.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:744459624156:android:8b754bc3cf0720205ede19",
+        "android_client_info": {
+          "package_name": "com.example.coentrepreneurs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5_nTym6SRhPzk8_OQv0ohJ-A0jf4fPTw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

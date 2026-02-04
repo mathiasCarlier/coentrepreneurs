@@ -1,0 +1,39 @@
+name: coentrepreneurs
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Firebase - Versions stables pour Flutter 3.38
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+  
+  # State management
+  provider: ^6.1.0
+  
+  # Navigation
+  go_router: ^17.0.1
+  
+  # UI
+  google_fonts: ^8.0.0
+  
+  # Utils
+  intl: ^0.20.2
+  url_launcher: ^6.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
