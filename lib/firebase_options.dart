@@ -41,46 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAENUINHeoRDJzbbfy29no8jwwiiJt3Dss',
-    appId: '1:744459624156:web:ed6bdf2f1d1c10f95ede19',
-    messagingSenderId: '744459624156',
-    projectId: 'firebase-coentrepreneurs-bts',
-    authDomain: 'fir-coentrepreneurs-bts.firebaseapp.com',
-    storageBucket: 'firebase-coentrepreneurs-bts.firebasestorage.app',
+    apiKey: 'AIzaSyC0WWXmG54WRWb10XppdvJsxtZtuojjsdc',
+    appId: '1:324815572845:web:760a3ad54952ab2913d464',
+    messagingSenderId: '324815572845',
+    projectId: 'coentrepreneurs-7b291',
+    authDomain: 'coentrepreneurs-7b291.firebaseapp.com',
+    storageBucket: 'coentrepreneurs-7b291.firebasestorage.app',
+    measurementId: 'G-XDQTK3BH70',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC5_nTym6SRhPzk8_OQv0ohJ-A0jf4fPTw',
-    appId: '1:744459624156:android:8b754bc3cf0720205ede19',
-    messagingSenderId: '744459624156',
-    projectId: 'firebase-coentrepreneurs-bts',
-    storageBucket: 'firebase-coentrepreneurs-bts.firebasestorage.app',
+    apiKey: 'AIzaSyAEK67NEsEwBgYi9CnlKfWTb_LTxIxK5CI',
+    appId: '1:324815572845:android:1cf6f5a1303e6dd213d464',
+    messagingSenderId: '324815572845',
+    projectId: 'coentrepreneurs-7b291',
+    storageBucket: 'coentrepreneurs-7b291.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAWW8uA7DuGOwbVOdMWMvHkVCBZXcFeh5Y',
-    appId: '1:744459624156:ios:7843ded56a34512e5ede19',
-    messagingSenderId: '744459624156',
-    projectId: 'firebase-coentrepreneurs-bts',
-    storageBucket: 'firebase-coentrepreneurs-bts.firebasestorage.app',
+    apiKey: 'AIzaSyAZkXSV5jmc8ZlF7w0gv50qx5rLmvN5ewg',
+    appId: '1:324815572845:ios:6d596f8d8849533613d464',
+    messagingSenderId: '324815572845',
+    projectId: 'coentrepreneurs-7b291',
+    storageBucket: 'coentrepreneurs-7b291.firebasestorage.app',
     iosBundleId: 'com.example.coentrepreneurs',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAWW8uA7DuGOwbVOdMWMvHkVCBZXcFeh5Y',
-    appId: '1:744459624156:ios:7843ded56a34512e5ede19',
-    messagingSenderId: '744459624156',
-    projectId: 'firebase-coentrepreneurs-bts',
-    storageBucket: 'firebase-coentrepreneurs-bts.firebasestorage.app',
+    apiKey: 'AIzaSyAZkXSV5jmc8ZlF7w0gv50qx5rLmvN5ewg',
+    appId: '1:324815572845:ios:6d596f8d8849533613d464',
+    messagingSenderId: '324815572845',
+    projectId: 'coentrepreneurs-7b291',
+    storageBucket: 'coentrepreneurs-7b291.firebasestorage.app',
     iosBundleId: 'com.example.coentrepreneurs',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyAENUINHeoRDJzbbfy29no8jwwiiJt3Dss',
-    appId: '1:744459624156:web:c4b4d64a0a06fbbc5ede19',
-    messagingSenderId: '744459624156',
-    projectId: 'firebase-coentrepreneurs-bts',
-    authDomain: 'fir-coentrepreneurs-bts.firebaseapp.com',
-    storageBucket: 'firebase-coentrepreneurs-bts.firebasestorage.app',
+    apiKey: 'AIzaSyC0WWXmG54WRWb10XppdvJsxtZtuojjsdc',
+    appId: '1:324815572845:web:2f79064c850cd84f13d464',
+    messagingSenderId: '324815572845',
+    projectId: 'coentrepreneurs-7b291',
+    authDomain: 'coentrepreneurs-7b291.firebaseapp.com',
+    storageBucket: 'coentrepreneurs-7b291.firebasestorage.app',
+    measurementId: 'G-KZCNEQ4QNE',
   );
+
 }

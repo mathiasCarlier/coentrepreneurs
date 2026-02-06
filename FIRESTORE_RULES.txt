@@ -1,0 +1,41 @@
+// FIRESTORE SECURITY RULES
+// À copier dans la console Firestore (https://console.firebase.google.com)
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Collection pour les acceptations de CGU
+    match /cgu_acceptances/{userId} {
+      // Chaque utilisateur peut lire/écrire son propre document
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // Autres collections (exemples)
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId || isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Fonction helper pour vérifier si l'utilisateur est authentifié
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Fonction helper pour vérifier si l'utilisateur est admin
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
+
+// NOTES:
+// - Ces règles garantissent que chaque utilisateur ne peut voir que son propre enregistrement CGU
+// - Seul l'utilisateur qui possède le document peut le lire ou écrire
+// - Les admins peuvent avoir des permissions élargies si nécessaire
+// - Test les règles dans la section "Rules Simulator" avant de les déployer

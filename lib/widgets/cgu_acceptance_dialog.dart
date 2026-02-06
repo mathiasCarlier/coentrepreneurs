@@ -1,0 +1,329 @@
+// widgets/cgu_acceptance_dialog.dart
+import 'package:flutter/material.dart';
+import 'package:coentrepreneurs/services/cgu_service.dart';
+
+class CGUAcceptanceDialog extends StatefulWidget {
+  final VoidCallback onAccepted;
+
+  const CGUAcceptanceDialog({
+    super.key,
+    required this.onAccepted,
+  });
+
+  @override
+  State<CGUAcceptanceDialog> createState() => _CGUAcceptanceDialogState();
+}
+
+class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
+  bool _hasReadCGU = false;
+  bool _acceptsCGU = false;
+  final ScrollController _scrollController = ScrollController();
+  double _scrollPercentage = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateScrollPercentage);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_updateScrollPercentage);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _updateScrollPercentage() {
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll == 0) {
+      setState(() => _hasReadCGU = true);
+      return;
+    }
+
+    final scrollPercentage = (_scrollController.offset / maxScroll) * 100;
+    setState(() {
+      _scrollPercentage = scrollPercentage;
+      // Considérer que l'utilisateur a lu s'il a scrollé jusqu'à 90%
+      _hasReadCGU = scrollPercentage >= 90;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 24,
+      ),
+      // ✅ Le dialog lui-même est scrollable
+      child: SingleChildScrollView(
+        child: Container(
+          width: screenWidth > 800 ? 600 : null,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: isDark ? const Color(0xFF2a2a2a) : Colors.white,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Conditions d\'utilisation',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                      ),
+                    ),
+                    Tooltip(
+                      message: 'Veuillez lire l\'intégralité du document',
+                      child: Icon(
+                        Icons.info_outline,
+                        color: Colors.blue.shade700,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Vous devez accepter les conditions d\'utilisation pour accéder à l\'application',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // CGU Content with scroll - CONSTRAINED HEIGHT
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                constraints: BoxConstraints(
+                  maxHeight: isMobile ? 300 : 400,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  color: isDark ? Colors.grey[900]?.withOpacity(0.3) : Colors.grey[50],
+                ),
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      controller: _scrollController,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          CGUService.cguContent,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                height: 1.6,
+                                // ✅ TEXTE BLANC - Très visible
+                                color: isDark
+                                    ? Colors.grey[100]  // Blanc cassé très clair
+                                    : Colors.grey[900],  // Noir en mode clair
+                                fontSize: 13,
+                              ),
+                        ),
+                      ),
+                    ),
+                    // Progress indicator en bas
+                    if (_scrollPercentage < 100)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[800] : Colors.grey[200],
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(8),
+                              bottomRight: Radius.circular(8),
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(8),
+                              bottomRight: Radius.circular(8),
+                            ),
+                            child: LinearProgressIndicator(
+                              value: _scrollPercentage / 100,
+                              minHeight: 4,
+                              backgroundColor: Colors.transparent,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Progress message
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _hasReadCGU
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          border: Border.all(color: Colors.green.shade200),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 16,
+                              color: Colors.green.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Merci de lire les conditions',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          border: Border.all(color: Colors.amber.shade200),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.amber.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Veuillez lire entièrement les conditions (${_scrollPercentage.toStringAsFixed(0)}%)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.amber.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Checkbox
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  enabled: _hasReadCGU,
+                  value: _acceptsCGU,
+                  onChanged: _hasReadCGU
+                      ? (value) {
+                          setState(() => _acceptsCGU = value ?? false);
+                        }
+                      : null,
+                  title: Text(
+                    'J\'accepte les conditions d\'utilisation',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: _hasReadCGU
+                              ? (isDark ? Colors.white : Colors.black87)
+                              : (isDark ? Colors.grey[600] : Colors.grey[400]),
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                  checkColor: Colors.white,
+                  activeColor: Colors.blue.shade700,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Buttons
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(false);
+                      },
+                      child: Text(
+                        'Refuser',
+                        style: TextStyle(
+                          color: isDark ? Colors.grey[300] : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _acceptsCGU
+                          ? () {
+                              Navigator.of(context).pop(true);
+                              widget.onAccepted();
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade700,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        child: Text('Accepter'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

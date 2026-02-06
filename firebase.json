@@ -3,20 +3,20 @@
     "platforms": {
       "android": {
         "default": {
-          "projectId": "firebase-coentrepreneurs-bts",
-          "appId": "1:744459624156:android:8b754bc3cf0720205ede19",
+          "projectId": "coentrepreneurs-7b291",
+          "appId": "1:324815572845:android:1cf6f5a1303e6dd213d464",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "firebase-coentrepreneurs-bts",
+          "projectId": "coentrepreneurs-7b291",
           "configurations": {
-            "android": "1:744459624156:android:8b754bc3cf0720205ede19",
-            "ios": "1:744459624156:ios:7843ded56a34512e5ede19",
-            "macos": "1:744459624156:ios:7843ded56a34512e5ede19",
-            "web": "1:744459624156:web:ed6bdf2f1d1c10f95ede19",
-            "windows": "1:744459624156:web:c4b4d64a0a06fbbc5ede19"
+            "android": "1:324815572845:android:1cf6f5a1303e6dd213d464",
+            "ios": "1:324815572845:ios:6d596f8d8849533613d464",
+            "macos": "1:324815572845:ios:6d596f8d8849533613d464",
+            "web": "1:324815572845:web:760a3ad54952ab2913d464",
+            "windows": "1:324815572845:web:2f79064c850cd84f13d464"
           }
         }
       }
