@@ -28,6 +28,10 @@ Future<void> main() async {
   runApp(const App());
 }
 
+// NOTE: `main` initialise Firebase et démarre l'app. En environnement de
+// production, on pourrait gérer les erreurs Firebase plus finement (écran
+// d'erreur, retry, logging), ici un simple `print` est utilisé pour debug.
+
 class App extends StatefulWidget {
   const App({super.key});
 
@@ -45,6 +49,10 @@ class _AppState extends State<App> {
     _authService = AuthService();
     _router = _createRouter(_authService);
   }
+
+  // NOTE: l'instance `AuthService` est créée ici et fournie via `Provider`.
+  // Le routeur utilise `GoRouterRefreshStream` lié à `authStateChanges`
+  // pour recalculer les redirections automatiquement quand l'état change.
 
   @override
   void dispose() {
@@ -69,7 +77,10 @@ class _AppState extends State<App> {
 
 ThemeData _buildLightTheme() {
   const seed = Color(0xFF2E6AE6);
-  final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: Brightness.light,
+  );
   final textTheme = GoogleFonts.interTextTheme();
 
   return ThemeData(
@@ -102,11 +113,15 @@ ThemeData _buildLightTheme() {
   );
 }
 
-
 ThemeData _buildDarkTheme() {
   const seed = Color(0xFF2E6AE6);
-  final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
-  final textTheme = GoogleFonts.interTextTheme(ThemeData(brightness: Brightness.dark).textTheme);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: Brightness.dark,
+  );
+  final textTheme = GoogleFonts.interTextTheme(
+    ThemeData(brightness: Brightness.dark).textTheme,
+  );
 
   return ThemeData(
     useMaterial3: true,
@@ -120,7 +135,8 @@ ThemeData _buildDarkTheme() {
       elevation: 0,
     ),
     cardTheme: CardThemeData(
-      color: scheme.surfaceContainerHighest, // remplacer surfaceContainerLow si nécessaire
+      color: scheme
+          .surfaceContainerHighest, // remplacer surfaceContainerLow si nécessaire
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),

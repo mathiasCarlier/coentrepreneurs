@@ -64,6 +64,12 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
+  // NOTE: _submit
+  // - Valide le formulaire local, appelle `AuthService.signup` pour créer
+  //   le compte et écrit le document `users/{uid}` côté Firestore (implémenté
+  //   dans `AuthService`).
+  // - En cas d'erreur, le message est affiché via `_error`.
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -93,9 +99,8 @@ class _SignUpPageState extends State<SignUpPage> {
                           const SizedBox(height: 8),
                           Text(
                             'Inscris-toi pour accéder à l\'application.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -133,12 +138,16 @@ class _SignUpPageState extends State<SignUpPage> {
                               hintText: 'ex: nom@domaine.com',
                             ),
                             keyboardType: TextInputType.emailAddress,
-                            autofillHints: const [AutofillHints.username, AutofillHints.email],
+                            autofillHints: const [
+                              AutofillHints.username,
+                              AutofillHints.email,
+                            ],
                             textInputAction: TextInputAction.next,
                             validator: (v) {
                               final value = (v ?? '').trim();
                               if (value.isEmpty) return 'Email requis.';
-                              if (!value.contains('@')) return 'Email invalide.';
+                              if (!value.contains('@'))
+                                return 'Email invalide.';
                               return null;
                             },
                           ),
@@ -163,8 +172,14 @@ class _SignUpPageState extends State<SignUpPage> {
                             decoration: InputDecoration(
                               labelText: 'Mot de passe',
                               suffixIcon: IconButton(
-                                icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                                onPressed: () => setState(() => _showPassword = !_showPassword),
+                                icon: Icon(
+                                  _showPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                  () => _showPassword = !_showPassword,
+                                ),
                               ),
                             ),
                             obscureText: !_showPassword,
@@ -173,7 +188,8 @@ class _SignUpPageState extends State<SignUpPage> {
                             validator: (v) {
                               final value = v ?? '';
                               if (value.isEmpty) return 'Mot de passe requis.';
-                              if (value.length < 6) return '6 caractères minimum.';
+                              if (value.length < 6)
+                                return '6 caractères minimum.';
                               return null;
                             },
                           ),
@@ -183,15 +199,22 @@ class _SignUpPageState extends State<SignUpPage> {
                             decoration: InputDecoration(
                               labelText: 'Confirmer le mot de passe',
                               suffixIcon: IconButton(
-                                icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                                onPressed: () => setState(() => _showPassword = !_showPassword),
+                                icon: Icon(
+                                  _showPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                  () => _showPassword = !_showPassword,
+                                ),
                               ),
                             ),
                             obscureText: !_showPassword,
                             textInputAction: TextInputAction.done,
                             onFieldSubmitted: (_) => _submit(),
                             validator: (v) {
-                              if (v != _passwordCtrl.text) return 'Les mots de passe ne correspondent pas.';
+                              if (v != _passwordCtrl.text)
+                                return 'Les mots de passe ne correspondent pas.';
                               return null;
                             },
                           ),
@@ -209,7 +232,9 @@ class _SignUpPageState extends State<SignUpPage> {
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Text('Créer un compte'),
                           ),

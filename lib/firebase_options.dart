@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'coentrepreneurs-7b291.firebasestorage.app',
     measurementId: 'G-KZCNEQ4QNE',
   );
-
 }

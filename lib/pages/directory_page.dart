@@ -9,7 +9,8 @@ class DirectoryPage extends StatelessWidget {
     {
       'brand': 'UTOLYS',
       'name': 'Boris LEJUDE',
-      'role': 'Consultant et coach formateur en informatique, internet et sécurité numérique.',
+      'role':
+          'Consultant et coach formateur en informatique, internet et sécurité numérique.',
       'phone': '+33614038742',
       'email': 'boris.lejude@gmail.com',
       'address': '7, rue des marchands, 86200 LOUDUN',
@@ -88,7 +89,8 @@ class DirectoryPage extends StatelessWidget {
     {
       'brand': 'Osier Viv',
       'name': 'Bruno METIVIER',
-      'role': 'Création sur mesure de structure osier vivant en pot ou plantées',
+      'role':
+          'Création sur mesure de structure osier vivant en pot ou plantées',
       'phone': '+33621734739',
       'email': 'brunolosierviv@hotmail.com',
       'address': '1, rue du Vannier Lieu-dit Nué, 86173 MOUTERRE SILLY',
@@ -100,7 +102,8 @@ class DirectoryPage extends StatelessWidget {
       'role': 'Magnetiseuse / Reiki / Créatrice de bijou',
       'phone': '+33629662020',
       'email': 'marienergie86@gmail.com',
-      'address': '2 rue des rosiers - Lieu dit "Verger sur Dive", 86200 VERGER SUR DIVE',
+      'address':
+          '2 rue des rosiers - Lieu dit "Verger sur Dive", 86200 VERGER SUR DIVE',
       'website': 'https://www.marienergie-mineraux.fr/',
     },
     {
@@ -149,7 +152,8 @@ class DirectoryPage extends StatelessWidget {
     {
       'brand': 'Celle qui croque',
       'name': 'Laeticia DUPORT',
-      'role': 'Créations artisanales en cyanotype : bijoux, déco et accessoires',
+      'role':
+          'Créations artisanales en cyanotype : bijoux, déco et accessoires',
       'phone': '+33628079967',
       'email': 'cellequicroque@gmail.com',
       'address': '86200 GUESNES',
@@ -214,6 +218,11 @@ class DirectoryPage extends StatelessWidget {
     }
   }
 
+  // NOTE: _launchURL
+  // - Ouvre une URL via `url_launcher`. Utilisé pour `tel:`, `mailto:` et
+  //   liens web externes. L'appel utilise `LaunchMode.externalApplication`
+  //   pour ouvrir l'application externe correspondante.
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,16 +243,16 @@ class DirectoryPage extends StatelessWidget {
                 Text(
                   'Annuaire — CoEntrepreneurs',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Contacts & activités. ${members.length} adhérents.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[700],
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
                 ),
               ],
             ),
@@ -261,10 +270,7 @@ class DirectoryPage extends StatelessWidget {
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: Colors.grey[300]!,
-          width: 1,
-        ),
+        side: BorderSide(color: Colors.grey[300]!, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -276,7 +282,10 @@ class DirectoryPage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey[400]!),
                     borderRadius: BorderRadius.circular(20),
@@ -293,17 +302,17 @@ class DirectoryPage extends StatelessWidget {
             // Nom
             Text(
               member['name'],
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             // Rôle
             Text(
               member['role'],
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    height: 1.35,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(height: 1.35),
             ),
             const SizedBox(height: 12),
             // Infos de contact
@@ -329,19 +338,9 @@ class DirectoryPage extends StatelessWidget {
         children: [
           SizedBox(
             width: 84,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-              ),
-            ),
+            child: Text(label, style: TextStyle(fontSize: 14)),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );
@@ -384,6 +383,7 @@ class DirectoryPage extends StatelessWidget {
     required String label,
     required VoidCallback onPressed,
   }) {
+    // Retourne un bouton stylisé avec `InkWell` pour l'effet tactile.
     return Material(
       color: Colors.transparent,
       child: Ink(
@@ -398,10 +398,7 @@ class DirectoryPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
         ),

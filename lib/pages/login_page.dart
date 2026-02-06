@@ -38,10 +38,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final auth = context.read<AuthService>();
-      await auth.login(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-      );
+      await auth.login(_emailCtrl.text.trim(), _passwordCtrl.text);
       if (mounted) context.go('/home');
     } catch (e) {
       setState(() => _error = e.toString());
@@ -49,6 +46,11 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  // NOTE: _submit
+  // - Valide le formulaire, appelle `AuthService.login` et redirige vers
+  //   `/home` en cas de succès. Les erreurs sont affichées via `_error`.
+  // - `mounted` est vérifié avant d'appeler `setState` ou `context.go`.
 
   @override
   Widget build(BuildContext context) {
@@ -78,11 +80,11 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 8),
                         Text(
                           'Connecte-toi pour accéder à l’application.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                         const SizedBox(height: 16),
+                        // Email
                         TextFormField(
                           controller: _emailCtrl,
                           decoration: const InputDecoration(
@@ -90,7 +92,10 @@ class _LoginPageState extends State<LoginPage> {
                             hintText: 'ex: nom@domaine.com',
                           ),
                           keyboardType: TextInputType.emailAddress,
-                          autofillHints: const [AutofillHints.username, AutofillHints.email],
+                          autofillHints: const [
+                            AutofillHints.username,
+                            AutofillHints.email,
+                          ],
                           textInputAction: TextInputAction.next,
                           validator: (v) {
                             final value = (v ?? '').trim();
@@ -100,13 +105,20 @@ class _LoginPageState extends State<LoginPage> {
                           },
                         ),
                         const SizedBox(height: 12),
+                        // Mot de passe
                         TextFormField(
                           controller: _passwordCtrl,
                           decoration: InputDecoration(
                             labelText: 'Mot de passe',
                             suffixIcon: IconButton(
-                              icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
-                              onPressed: () => setState(() => _showPassword = !_showPassword),
+                              icon: Icon(
+                                _showPassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () => setState(
+                                () => _showPassword = !_showPassword,
+                              ),
                             ),
                           ),
                           obscureText: !_showPassword,
@@ -116,16 +128,14 @@ class _LoginPageState extends State<LoginPage> {
                           validator: (v) {
                             final value = v ?? '';
                             if (value.isEmpty) return 'Mot de passe requis.';
-                            if (value.length < 6) return '6 caractères minimum.';
+                            if (value.length < 6)
+                              return '6 caractères minimum.';
                             return null;
                           },
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 12),
-                          Text(
-                            _error!,
-                            style: TextStyle(color: scheme.error),
-                          ),
+                          Text(_error!, style: TextStyle(color: scheme.error)),
                         ],
                         const SizedBox(height: 16),
                         FilledButton(
@@ -134,7 +144,9 @@ class _LoginPageState extends State<LoginPage> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text('Se connecter'),
                         ),

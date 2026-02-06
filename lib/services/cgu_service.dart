@@ -5,7 +5,10 @@ import 'package:coentrepreneurs/models/cgu_acceptance.dart';
 class CGUService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
-  // Version actuelle des CGU - à mettre à jour si les conditions changent
+  // Version actuelle des CGU - incrémentez cette valeur si le texte des
+  // CGU change afin que les utilisateurs soient forcés de ré-accepter
+  // explicitement la nouvelle version. La vérification en base compare
+  // le champ `cguVersion` stocké avec cette constante.
   static const String currentCGUVersion = '1.0';
 
   /// Récupère l'état d'acceptation des CGU pour un utilisateur
@@ -210,3 +213,10 @@ Et surtout, c’est choisir d’en être un acteur responsable
 
 ''';
 }
+
+// Note sur le stockage Firestore:
+// - Collection: `cgu_acceptances`
+// - Document ID: userId
+// - Champs attendus: { userId, hasAccepted: bool, acceptedDate: Timestamp, cguVersion: string }
+// Ce format facilite la vérification par version et l'historique minimal de
+// l'acceptation côté serveur.

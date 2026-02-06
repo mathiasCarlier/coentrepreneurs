@@ -6,6 +6,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:coentrepreneurs/models/user.dart';
 
+// Service d'authentification et d'interface avec FirebaseAuth / Firestore.
+// Responsabilités principales :
+// - exposer un `authStateChanges` stream qui renvoie un `User?` application-level
+//   construit à partir de l'utilisateur Firebase + données Firestore,
+// - fournir des méthodes `login`, `signup`, `logout` utilisées par l'UI,
+// - centraliser la conversion d'erreurs Firebase en messages en français.
 class AuthService {
   AuthService({
     firebase_auth.FirebaseAuth? firebaseAuth,
@@ -18,6 +24,11 @@ class AuthService {
 
   /// Stream qui émet les changements d'état d'authentification
   Stream<User?> get authStateChanges {
+    // On écoute FirebaseAuth puis on enrichit chaque `firebaseUser` avec
+    // les données utilisateur stockées dans Firestore. `asyncMap` est utilisé
+    // car la récupération Firestore est asynchrone.
+    // Remarque : toute exception ici est capturée et un `User` minimal peut
+    // être renvoyé pour que l'UI conserve un état cohérent.
     return _auth.authStateChanges().asyncMap((firebaseUser) async {
       if (firebaseUser == null) return null;
       try {
@@ -252,6 +263,10 @@ class AuthService {
 }
 
 class GoRouterRefreshStream extends ChangeNotifier {
+  // Helper utilitaire pour intégrer un Stream (ex: auth state) avec GoRouter.
+  // GoRouter attend un [Listenable] pour déclencher la redirection; cette
+  // classe adapte un Stream en ChangeNotifier en réémettant `notifyListeners`
+  // à chaque événement du stream.
   GoRouterRefreshStream(Stream<dynamic> stream) {
     _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
   }

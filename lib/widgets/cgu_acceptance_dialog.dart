@@ -48,6 +48,13 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
     });
   }
 
+  // NOTE: _updateScrollPercentage
+  // - Écoute le ScrollController pour calculer le pourcentage de lecture.
+  // - Si l'utilisateur a fait défiler >= 90%, `_hasReadCGU` devient true
+  //   et active la checkbox d'acceptation.
+  // - Important: éviter les setState trop fréquents; ici on met à jour la
+  //   valeur à chaque écoute mais le coût est faible (valeur simple).
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -127,6 +134,10 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                 child: Stack(
                   children: [
                     SingleChildScrollView(
+                      // Le contenu des CGU est dans ce scroll; le controller
+                      // permet de déterminer si l'utilisateur a réellement
+                      // parcouru l'intégralité du texte avant d'autoriser
+                      // l'acceptation.
                       controller: _scrollController,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -253,6 +264,8 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
               // Checkbox
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
+                // La checkbox est désactivée tant que `_hasReadCGU` est false.
+                // L'utilisateur doit scroller jusqu'au seuil pour pouvoir cocher.
                 child: CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   enabled: _hasReadCGU,
@@ -285,6 +298,9 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
+                      // Refuser: on ferme le dialog et on renvoie `false` au
+                      // caller. Le traitement de la fermeture/refus est géré
+                      // par le code appelant via `.then((accepted) { ... })`.
                       onPressed: () {
                         Navigator.of(context).pop(false);
                       },

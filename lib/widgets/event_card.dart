@@ -32,6 +32,10 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     _elevation = Tween<double>(begin: 2, end: 12).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
+    // NOTE: Animation utilisée pour l'effet de 'lift' au survol (hover).
+    // Le widget utilise `MouseRegion` pour appeler `_controller.forward()`
+    // sur `onEnter` et `reverse()` sur `onExit`. Sur mobile ce comportement
+    // n'est pas visible mais l'animation n'affecte pas le rendu.
   }
 
   @override
@@ -198,6 +202,9 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   @override
   void didUpdateWidget(EventCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Si le thème (isDark) change, on rebuild pour recalculer les couleurs.
+    // `setState` est ici nécessaire car les couleurs sont lues depuis
+    // `widget.isDark` et l'animation ne dépend pas de cette valeur.
     if (oldWidget.isDark != widget.isDark) {
       setState(() {});
     }

@@ -1,5 +1,10 @@
+// Roles applicatifs pour distinguer les permissions côté UI/back-end.
 enum UserRole { admin, adherent, invite }
 
+// Modèle `User` utilisé dans l'application (séparé du `firebase_auth.User`).
+// Contient les champs affichés et persistés dans Firestore (`users/{uid}`).
+// Remarque: la conversion `role.toString().split('.').last` est utilisée
+// pour stocker une représentation texte simple en Firestore.
 class User {
   final String uid;
   final String email;

@@ -51,6 +51,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // NOTE: _checkAndHandleCGU
+  // - Récupère l'utilisateur courant via AuthService (peut effectuer un accès réseau)
+  // - Vérifie en Firestore si l'utilisateur a accepté la version actuelle des CGU
+  // - Met à jour l'état local (_cguCheckCompleted / _userAcceptedCGU) puis
+  //   affiche la boîte de dialogue d'acceptation si nécessaire.
+  // Important: cette méthode est appelée depuis initState; elle doit gérer
+  // correctement `mounted` pour éviter les setState sur widget démonté.
+
   void _showCGUDialog(String userId) {
     showDialog(
       context: context,
@@ -88,6 +96,13 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // NOTE: _showCGUDialog
+  // - Affiche le `CGUAcceptanceDialog` et attend l'action de l'utilisateur.
+  // - En cas d'acceptation, appelle le service pour enregistrer l'acceptation
+  //   et met à jour l'UI (SnackBar + état local).
+  // - `.then((accepted) { ... })` gère explicitement le cas où l'utilisateur
+  //   ferme ou refuse la dialog; cela déclenche une déconnexion contrôlée.
+
   void _handleCGURejection() {
     showDialog(
       context: context,
@@ -104,9 +119,7 @@ class _HomePageState extends State<HomePage> {
               Navigator.of(context).pop();
               _logout();
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Déconnexion'),
           ),
         ],
@@ -127,7 +140,8 @@ class _HomePageState extends State<HomePage> {
       Event(
         id: '1',
         date: DateTime(2026, 3, 5),
-        theme: 'La dématérialisation des factures achats/ventes. Comment faire ?',
+        theme:
+            'La dématérialisation des factures achats/ventes. Comment faire ?',
         intervenant: 'en cours de définition',
         entreprise: 'en cours de définition',
         lieu: 'en cours définition',
@@ -171,6 +185,11 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: StreamBuilder<User?>(
+        // Le StreamBuilder écoute `auth.authStateChanges` provenant de
+        // `AuthService`. Ce stream émet un `User?` à chaque changement
+        // d'état d'authentification (login/logout). Le builder doit gérer
+        // correctement les états `waiting` / `active` et tenir compte
+        // des vérifications asynchrones des CGU effectuées dans initState.
         stream: auth.authStateChanges,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -230,9 +249,9 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 32),
             Text(
               'Accès limité',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -240,9 +259,9 @@ class _HomePageState extends State<HomePage> {
               'Vous devez accepter les conditions d\'utilisation pour accéder à l\'application.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    height: 1.5,
-                  ),
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 40),
             SizedBox(
@@ -313,15 +332,15 @@ class _HomePageState extends State<HomePage> {
               Text(
                 'Bienvenue,',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    ),
+                  color: isDark ? Colors.grey[300] : Colors.grey[700],
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 user.nomComplet,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -330,20 +349,13 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.green[900]?.withOpacity(0.3),
-            border: Border.all(
-              color: Colors.green[400]!,
-              width: 1.5,
-            ),
+            border: Border.all(color: Colors.green[400]!, width: 1.5),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 16,
-                color: Colors.green[400],
-              ),
+              Icon(Icons.check_circle, size: 16, color: Colors.green[400]),
               const SizedBox(width: 6),
               Text(
                 'CGU ok',
@@ -380,18 +392,10 @@ class _HomePageState extends State<HomePage> {
             isDark: isDark,
           ),
           const SizedBox(height: 16),
-          _InfoRow(
-            label: 'Email',
-            value: user.email,
-            isDark: isDark,
-          ),
+          _InfoRow(label: 'Email', value: user.email, isDark: isDark),
           if (user.phone.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _InfoRow(
-              label: 'Téléphone',
-              value: user.phone,
-              isDark: isDark,
-            ),
+            _InfoRow(label: 'Téléphone', value: user.phone, isDark: isDark),
           ],
         ],
       ),
@@ -405,7 +409,10 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [Colors.blue[900]!.withOpacity(0.3), Colors.purple[900]!.withOpacity(0.3)]
+              ? [
+                  Colors.blue[900]!.withOpacity(0.3),
+                  Colors.purple[900]!.withOpacity(0.3),
+                ]
               : [Colors.blue[50]!, Colors.purple[50]!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -441,15 +448,15 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       'Une question ?',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Idées, aides, problèmes... Nous sommes là pour vous',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -464,11 +471,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.lightbulb_outline,
                   label: 'Une idée',
                   color: Colors.orange,
-                  onPressed: () => _sendEmail(
-                    context,
-                    user,
-                    'Nouvelle idée',
-                  ),
+                  onPressed: () => _sendEmail(context, user, 'Nouvelle idée'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -477,11 +480,7 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.help_outline,
                   label: 'Besoin d\'aide',
                   color: Colors.blue,
-                  onPressed: () => _sendEmail(
-                    context,
-                    user,
-                    'Demande d\'aide',
-                  ),
+                  onPressed: () => _sendEmail(context, user, 'Demande d\'aide'),
                 ),
               ),
             ],
@@ -493,11 +492,8 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.report_problem_outlined,
               label: 'Signaler un problème',
               color: Colors.red,
-              onPressed: () => _sendEmail(
-                context,
-                user,
-                'Signalement de problème',
-              ),
+              onPressed: () =>
+                  _sendEmail(context, user, 'Signalement de problème'),
             ),
           ),
         ],
@@ -506,16 +502,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   // NOUVELLE MÉTHODE: Envoi d'email
-  Future<void> _sendEmail(BuildContext context, User user, String subject) async {
+  Future<void> _sendEmail(
+    BuildContext context,
+    User user,
+    String subject,
+  ) async {
     // Remplacez cette adresse par l'email de destination souhaité
     const String destinationEmail = 'boris.lejude@gmail.com';
-    
+
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: destinationEmail,
       queryParameters: {
         'subject': '[$subject] - ${user.nomComplet}',
-        'body': 'Bonjour,\n\n'
+        'body':
+            'Bonjour,\n\n'
             '[Écrivez votre message ici]\n\n'
             '---\n'
             'Envoyé par: ${user.nomComplet}\n'
@@ -531,10 +532,7 @@ class _HomePageState extends State<HomePage> {
       } else {
         // Sur mobile/desktop, on vérifie d'abord
         if (await canLaunchUrl(emailUri)) {
-          await launchUrl(
-            emailUri,
-            mode: LaunchMode.externalApplication,
-          );
+          await launchUrl(emailUri, mode: LaunchMode.externalApplication);
         } else {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -566,9 +564,7 @@ class _HomePageState extends State<HomePage> {
         onPressed: () {
           // Redirection vers la page interne de l'annuaire au lieu de l'URL externe
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const DirectoryPage(),
-            ),
+            MaterialPageRoute(builder: (context) => const DirectoryPage()),
           );
         },
         icon: const Icon(Icons.people_outline),
@@ -601,9 +597,9 @@ class _HomePageState extends State<HomePage> {
       children: [
         Text(
           'Événements à venir',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         ListView.builder(
@@ -617,9 +613,7 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 // Vous pouvez ajouter la navigation vers les détails de l'événement
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Détails: ${_events[index].theme}'),
-                  ),
+                  SnackBar(content: Text('Détails: ${_events[index].theme}')),
                 );
               },
             );
@@ -651,18 +645,13 @@ class _ContactButton extends StatelessWidget {
       icon: Icon(icon, size: 20),
       label: Text(
         label,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
       ),
     );
@@ -688,18 +677,18 @@ class _InfoRow extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.grey[400] :   Colors.grey[700],
-              ),
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.grey[400] : Colors.grey[700],
+          ),
         ),
         Expanded(
           child: Text(
             value,
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.grey[100] : Colors.grey[900],
-                ),
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.grey[100] : Colors.grey[900],
+            ),
           ),
         ),
       ],
