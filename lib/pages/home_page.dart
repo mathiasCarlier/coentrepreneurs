@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
@@ -12,6 +13,7 @@ import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_card.dart';
 import 'package:coentrepreneurs/pages/directory_page.dart';
+import 'package:coentrepreneurs/pages/settings_page.dart'; // ← AJOUTER CETTE LIGNE
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -51,14 +53,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // NOTE: _checkAndHandleCGU
-  // - Récupère l'utilisateur courant via AuthService (peut effectuer un accès réseau)
-  // - Vérifie en Firestore si l'utilisateur a accepté la version actuelle des CGU
-  // - Met à jour l'état local (_cguCheckCompleted / _userAcceptedCGU) puis
-  //   affiche la boîte de dialogue d'acceptation si nécessaire.
-  // Important: cette méthode est appelée depuis initState; elle doit gérer
-  // correctement `mounted` pour éviter les setState sur widget démonté.
-
   void _showCGUDialog(String userId) {
     showDialog(
       context: context,
@@ -90,18 +84,10 @@ class _HomePageState extends State<HomePage> {
       ),
     ).then((accepted) {
       if (accepted != true) {
-        // L'utilisateur a refusé les conditions
         _handleCGURejection();
       }
     });
   }
-
-  // NOTE: _showCGUDialog
-  // - Affiche le `CGUAcceptanceDialog` et attend l'action de l'utilisateur.
-  // - En cas d'acceptation, appelle le service pour enregistrer l'acceptation
-  //   et met à jour l'UI (SnackBar + état local).
-  // - `.then((accepted) { ... })` gère explicitement le cas où l'utilisateur
-  //   ferme ou refuse la dialog; cela déclenche une déconnexion contrôlée.
 
   void _handleCGURejection() {
     showDialog(
@@ -174,8 +160,27 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Accueil'),
         elevation: 0,
-        backgroundColor: isDark ? const Color(0xFF1a1a1a) : Colors.white,
+        backgroundColor: isDark ? const Color.fromARGB(255, 158, 158, 158) : Colors.white,
         actions: [
+          // ← AJOUTER CES BOUTONS
+          IconButton(
+            onPressed: () {
+              // Récupérer l'utilisateur et naviguer vers les paramètres
+              final auth = context.read<AuthService>();
+              final userStream = auth.authStateChanges;
+              userStream.first.then((user) {
+                if (user != null && mounted) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => SettingsPage(user: user),
+                    ),
+                  );
+                }
+              });
+            },
+            icon: const Icon(Icons.settings, size: 24),
+            tooltip: 'Paramètres',
+          ),
           TextButton.icon(
             onPressed: _logout,
             icon: const Icon(Icons.logout, size: 18),
@@ -185,11 +190,6 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: StreamBuilder<User?>(
-        // Le StreamBuilder écoute `auth.authStateChanges` provenant de
-        // `AuthService`. Ce stream émet un `User?` à chaque changement
-        // d'état d'authentification (login/logout). Le builder doit gérer
-        // correctement les états `waiting` / `active` et tenir compte
-        // des vérifications asynchrones des CGU effectuées dans initState.
         stream: auth.authStateChanges,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -207,17 +207,14 @@ class _HomePageState extends State<HomePage> {
             );
           }
 
-          // Attendre la vérification des CGU
           if (!_cguCheckCompleted) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Si l'utilisateur n'a pas accepté les CGU, afficher un message
           if (!_userAcceptedCGU) {
             return _buildAccessDeniedScreen(context, user);
           }
 
-          // Contenu principal si CGU acceptées
           return _buildMainContent(context, user);
         },
       ),
@@ -296,23 +293,17 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header avec bienvenue
             _buildWelcomeSection(context, user, isDark),
             const SizedBox(height: 32),
 
-            // Section infos utilisateur
-            _buildUserInfoSection(context, user, isDark),
-            const SizedBox(height: 32),
+            // ← SUPPRIMER _buildUserInfoSection
 
-            // NOUVELLE SECTION: Contact/Question
             _buildContactSection(context, user, isDark),
             const SizedBox(height: 32),
 
-            // Section événements
             _buildEventsSection(context, isDark),
             const SizedBox(height: 32),
 
-            // Section actions
             _buildActionsSection(context, isDark),
             const SizedBox(height: 24),
           ],
@@ -373,36 +364,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildUserInfoSection(BuildContext context, User user, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
-        border: Border.all(
-          color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          _InfoRow(
-            label: 'Rôle',
-            value: _getRoleLabel(user.role),
-            isDark: isDark,
-          ),
-          const SizedBox(height: 16),
-          _InfoRow(label: 'Email', value: user.email, isDark: isDark),
-          if (user.phone.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _InfoRow(label: 'Téléphone', value: user.phone, isDark: isDark),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // NOUVELLE MÉTHODE: Section Contact
   Widget _buildContactSection(BuildContext context, User user, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -471,7 +432,8 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.lightbulb_outline,
                   label: 'Une idée',
                   color: Colors.orange,
-                  onPressed: () => _sendEmail(context, user, 'Nouvelle idée'),
+                  onPressed: () =>
+                      _showMessageDialog(context, user, 'Nouvelle idée'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -480,7 +442,8 @@ class _HomePageState extends State<HomePage> {
                   icon: Icons.help_outline,
                   label: 'Besoin d\'aide',
                   color: Colors.blue,
-                  onPressed: () => _sendEmail(context, user, 'Demande d\'aide'),
+                  onPressed: () =>
+                      _showMessageDialog(context, user, 'Demande d\'aide'),
                 ),
               ),
             ],
@@ -493,7 +456,7 @@ class _HomePageState extends State<HomePage> {
               label: 'Signaler un problème',
               color: Colors.red,
               onPressed: () =>
-                  _sendEmail(context, user, 'Signalement de problème'),
+                  _showMessageDialog(context, user, 'Signalement de problème'),
             ),
           ),
         ],
@@ -501,59 +464,15 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // NOUVELLE MÉTHODE: Envoi d'email
-  Future<void> _sendEmail(
-    BuildContext context,
-    User user,
-    String subject,
-  ) async {
-    // Remplacez cette adresse par l'email de destination souhaité
-    const String destinationEmail = 'boris.lejude@gmail.com';
-
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: destinationEmail,
-      queryParameters: {
-        'subject': '[$subject] - ${user.nomComplet}',
-        'body':
-            'Bonjour,\n\n'
-            '[Écrivez votre message ici]\n\n'
-            '---\n'
-            'Envoyé par: ${user.nomComplet}\n'
-            'Email: ${user.email}\n'
-            'Rôle: ${_getRoleLabel(user.role)}',
-      },
+  /// Afficher le dialogue pour écrire un message
+  void _showMessageDialog(BuildContext context, User user, String category) {
+    showDialog(
+      context: context,
+      builder: (context) => _MessageFormDialog(
+        user: user,
+        category: category,
+      ),
     );
-
-    try {
-      // Sur web, on lance directement sans vérification
-      if (kIsWeb) {
-        await launchUrl(emailUri);
-      } else {
-        // Sur mobile/desktop, on vérifie d'abord
-        if (await canLaunchUrl(emailUri)) {
-          await launchUrl(emailUri, mode: LaunchMode.externalApplication);
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Impossible d\'ouvrir l\'application email'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'ouverture de l\'email: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Widget _buildActionsSection(BuildContext context, bool isDark) {
@@ -562,7 +481,6 @@ class _HomePageState extends State<HomePage> {
       height: 48,
       child: ElevatedButton.icon(
         onPressed: () {
-          // Redirection vers la page interne de l'annuaire au lieu de l'URL externe
           Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const DirectoryPage()),
           );
@@ -570,8 +488,8 @@ class _HomePageState extends State<HomePage> {
         icon: const Icon(Icons.people_outline),
         label: const Text('Consulter les adhérents'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue[600],
-          foregroundColor: const Color.fromARGB(255, 1, 73, 4),
+          backgroundColor: Colors.green[600],
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -611,7 +529,6 @@ class _HomePageState extends State<HomePage> {
               event: _events[index],
               isDark: isDark,
               onTap: () {
-                // Vous pouvez ajouter la navigation vers les détails de l'événement
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Détails: ${_events[index].theme}')),
                 );
@@ -624,7 +541,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Widget pour les boutons de contact
 class _ContactButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -690,6 +606,169 @@ class _InfoRow extends StatelessWidget {
               color: isDark ? Colors.grey[100] : Colors.grey[900],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Formulaire simple pour écrire un message (stocké dans Firestore)
+class _MessageFormDialog extends StatefulWidget {
+  final User user;
+  final String category;
+
+  const _MessageFormDialog({
+    required this.user,
+    required this.category,
+  });
+
+  @override
+  State<_MessageFormDialog> createState() => _MessageFormDialogState();
+}
+
+class _MessageFormDialogState extends State<_MessageFormDialog> {
+  late TextEditingController _messageController;
+  bool _isSending = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitMessage() async {
+    if (_messageController.text.trim().isEmpty) {
+      setState(() => _error = 'Veuillez entrer un message');
+      return;
+    }
+
+    setState(() {
+      _isSending = true;
+      _error = null;
+    });
+
+    try {
+      // Stocker le message dans Firestore
+      await FirebaseFirestore.instance.collection('messages').add({
+        'userId': widget.user.uid,
+        'userName': widget.user.nomComplet,
+        'userEmail': widget.user.email,
+        'userRole': widget.user.role.toString(),
+        'category': widget.category,
+        'message': _messageController.text.trim(),
+        'timestamp': FieldValue.serverTimestamp(),
+        'read': false,
+      });
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Message enregistré avec succès!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      setState(() => _error = 'Erreur: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AlertDialog(
+      title: Text(widget.category),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            Text(
+              'Votre message:',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _messageController,
+              maxLines: 8,
+              minLines: 6,
+              enabled: !_isSending,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Écrivez votre message ici...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  border: Border.all(color: Colors.red),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSending ? null : () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: _isSending ? null : _submitMessage,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue[600],
+          ),
+          child: _isSending
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
+              : const Text('Envoyer'),
         ),
       ],
     );
