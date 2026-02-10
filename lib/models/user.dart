@@ -8,9 +8,10 @@ enum UserRole { admin, adherent, invite }
 class User {
   final String uid;
   final String email;
-  final String nom;
-  final String prenom;
-  final String phone;
+  String nom;
+  String prenom;
+  String phone;
+  String? photoUrl;
   final UserRole role;
 
   User({
@@ -19,6 +20,7 @@ class User {
     required this.nom,
     required this.prenom,
     this.phone = '',
+    this.photoUrl,
     this.role = UserRole.invite,
   });
 
@@ -30,6 +32,7 @@ class User {
       'nom': nom,
       'prenom': prenom,
       'phone': phone,
+      'photoUrl': photoUrl,
       'role': role.toString().split('.').last,
     };
   }
@@ -42,6 +45,7 @@ class User {
       nom: json['nom'] as String,
       prenom: json['prenom'] as String,
       phone: (json['phone'] ?? '') as String,
+      photoUrl: json['photoUrl'] as String?,
       role: _parseRole(json['role']),
     );
   }
@@ -58,9 +62,6 @@ class User {
         return UserRole.invite;
     }
   }
-
-  /// Retourne le nom complet
-  String get nomComplet => '$prenom $nom';
 
   /// Crée une copie avec modifications optionnelles
   User copyWith({
@@ -83,5 +84,5 @@ class User {
 
   @override
   String toString() =>
-      'User(uid: $uid, email: $email, nomComplet: $nomComplet, phone: $phone, role: $role)';
+      'User(uid: $uid, email: $email, prenom: $prenom, nom: $nom, phone: $phone, photoUrl: $photoUrl, role: $role)';
 }

@@ -32,6 +32,9 @@ dependencies:
   # pour le web :
   universal_html: ^2.0.0
 
+  firebase_storage: ^13.0.6  # ← AJOUTER
+  image_picker: ^1.0.0      # ← AJOUTER
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -7,7 +7,6 @@ Points clés
 - `UserRole` : enum { admin, adherent, invite } utilisé pour la logique d'autorisation.
 - Conversion stockage/lecture : le rôle est persisté en texte (`'admin'`, `'adherent'`, `'invite'`).
 - `toJson` / `fromJson` : méthodes utilitaires pour sérialisation/ désérialisation.
-- `nomComplet` : getter pour afficher `prenom nom` dans l'UI.
 
 Conseils
 

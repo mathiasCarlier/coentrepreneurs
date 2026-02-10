@@ -1,11 +1,205 @@
 // pages/settings_page.dart
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
+import 'package:coentrepreneurs/services/cgu_service.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   final User user;
 
   const SettingsPage({super.key, required this.user});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  late User _user;
+  late TextEditingController _prenom;
+  late TextEditingController _nom;
+  late TextEditingController _phoneController;
+  bool _isEditing = false;
+  bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  File? _selectedPhoto;
+  final CGUService _cguService = CGUService();
+  final ImagePicker _imagePicker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _user = widget.user;
+    
+    _prenom = TextEditingController(text: _user.prenom);
+    _nom = TextEditingController(text: _user.nom);
+    _phoneController = TextEditingController(text: _user.phone);
+  }
+
+  @override
+  void dispose() {
+    _prenom.dispose();
+    _nom.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+
+      if (pickedFile != null) {
+        setState(() => _selectedPhoto = File(pickedFile.path));
+        _uploadPhoto();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la sélection: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadPhoto() async {
+    if (_selectedPhoto == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+
+    try {
+      final fileName = '${_user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures')
+          .child(fileName);
+
+      final uploadTask = ref.putFile(_selectedPhoto!);
+      final snapshot = await uploadTask;
+      final photoUrl = await snapshot.ref.getDownloadURL();
+
+      // Mettre à jour Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .update({'photoUrl': photoUrl});
+
+      // Mettre à jour l'objet local
+      setState(() {
+        _user.photoUrl = photoUrl;
+        _selectedPhoto = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Photo de profil mise à jour'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'upload: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  Future<void> _saveUserInfo() async {
+    if (_prenom.text.trim().isEmpty || _nom.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Le prénom et le nom ne peuvent pas être vides'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .update({
+            'prenom': _prenom.text.trim(),
+            'nom': _nom.text.trim(),
+            'phone': _phoneController.text.trim(),
+          });
+
+      // Mettre à jour l'objet _user
+      _user.prenom = _prenom.text.trim();
+      _user.nom = _nom.text.trim();
+      _user.phone = _phoneController.text.trim();
+
+      setState(() {
+        _isEditing = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Informations mises à jour avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showCGUDialog() async {
+    // Vérifier si l'utilisateur a déjà accepté les CGU
+    final userAcceptedCGU = await _cguService.hasUserAcceptedCGU(_user.uid);
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => CGUAcceptanceDialog(
+        alreadyAccepted: userAcceptedCGU,
+        userId: _user.uid,
+        onAccepted: () {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ CGU acceptées avec succès'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,16 +221,20 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Section Profil
-              _buildProfileSection(context, user, isDark),
+              // Section Profil avec photo
+              _buildProfileSection(context, _user, isDark),
               const SizedBox(height: 32),
 
-              // Section Informations Personnelles
-              _buildUserInfoSection(context, user, isDark),
+              // Section Informations Personnelles (avec édition)
+              _buildUserInfoSection(context, _user, isDark),
               const SizedBox(height: 32),
 
-              // Section Sécurité (optionnel)
+              // Section Sécurité
               _buildSecuritySection(context, isDark),
+              const SizedBox(height: 32),
+
+              // Section Légal (CGU)
+              _buildLegalSection(context, isDark),
               const SizedBox(height: 24),
             ],
           ),
@@ -71,28 +269,84 @@ class SettingsPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.blue[600],
-            ),
-            child: Center(
-              child: Text(
-                user.nomComplet
-                    .split(' ')
-                    .map((e) => e.isNotEmpty ? e[0] : '')
-                    .take(2)
-                    .join()
-                    .toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+          Stack(
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.blue[600],
+                  border: Border.all(
+                    color: Colors.blue[400]!,
+                    width: 3,
+                  ),
+                ),
+                child: user.photoUrl != null && user.photoUrl!.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          user.photoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Center(
+                              child: Text(
+                                '${user.prenom[0]}${user.nom.split(' ').first[0]}'
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          '${user.prenom[0]}${user.nom.split(' ').first[0]}'
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _isUploadingPhoto ? null : _pickPhoto,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.green[600],
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
+                    ),
+                    child: _isUploadingPhoto
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -100,7 +354,7 @@ class SettingsPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.nomComplet,
+                  '${user.prenom} ${user.nom}',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -150,42 +404,178 @@ class SettingsPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Informations personnelles',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Informations personnelles',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              if (!_isEditing)
+                ElevatedButton.icon(
+                  onPressed: () => setState(() => _isEditing = true),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Modifier'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[600],
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
                 ),
+            ],
           ),
           const SizedBox(height: 20),
-          _InfoItem(
-            icon: Icons.person,
-            label: 'Nom complet',
-            value: user.nomComplet,
-            isDark: isDark,
-          ),
-          const SizedBox(height: 16),
-          _InfoItem(
-            icon: Icons.email,
-            label: 'Email',
-            value: user.email,
-            isDark: isDark,
-          ),
-          if (user.phone.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _InfoItem(
-              icon: Icons.phone,
-              label: 'Téléphone',
-              value: user.phone,
-              isDark: isDark,
+          if (_isEditing)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Champ Prénom - ÉDITABLE
+                TextField(
+                  controller: _prenom,
+                  decoration: InputDecoration(
+                    labelText: 'Prénom',
+                    prefixIcon: const Icon(Icons.person),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Champ Nom - ÉDITABLE
+                TextField(
+                  controller: _nom,
+                  decoration: InputDecoration(
+                    labelText: 'Nom',
+                    prefixIcon: const Icon(Icons.person),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Champ Téléphone - ÉDITABLE
+                TextField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Téléphone',
+                    prefixIcon: const Icon(Icons.phone),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Email - NON ÉDITABLE
+                _InfoItem(
+                  icon: Icons.email,
+                  label: 'Email',
+                  value: user.email,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 16),
+
+                // Rôle - NON ÉDITABLE
+                _InfoItem(
+                  icon: Icons.badge,
+                  label: 'Rôle',
+                  value: _getRoleLabel(user.role),
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 24),
+
+                // Boutons d'action
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _isSaving
+                          ? null
+                          : () {
+                              // Réinitialiser les champs
+                              _prenom.text = user.prenom;
+                              _nom.text = user.nom;
+                              _phoneController.text = user.phone;
+                              setState(() => _isEditing = false);
+                            },
+                      child: const Text('Annuler'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _saveUserInfo,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.save, size: 16),
+                      label: Text(
+                          _isSaving ? 'Enregistrement...' : 'Enregistrer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InfoItem(
+                  icon: Icons.person,
+                  label: 'Prénom',
+                  value: user.prenom,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 16),
+                _InfoItem(
+                  icon: Icons.person,
+                  label: 'Nom',
+                  value: user.nom,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 16),
+                _InfoItem(
+                  icon: Icons.email,
+                  label: 'Email',
+                  value: user.email,
+                  isDark: isDark,
+                ),
+                if (user.phone.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _InfoItem(
+                    icon: Icons.phone,
+                    label: 'Téléphone',
+                    value: user.phone,
+                    isDark: isDark,
+                  ),
+                ],
+                const SizedBox(height: 16),
+                _InfoItem(
+                  icon: Icons.badge,
+                  label: 'Rôle',
+                  value: _getRoleLabel(user.role),
+                  isDark: isDark,
+                ),
+              ],
             ),
-          ],
-          const SizedBox(height: 16),
-          _InfoItem(
-            icon: Icons.badge,
-            label: 'Rôle',
-            value: _getRoleLabel(user.role),
-            isDark: isDark,
-          ),
         ],
       ),
     );
@@ -255,6 +645,51 @@ class SettingsPage extends StatelessWidget {
                 ),
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegalSection(BuildContext context, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Légal',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 20),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.description_outlined,
+              color: Colors.blue[600],
+            ),
+            title: Text(
+              'Conditions d\'utilisation',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            subtitle: Text(
+              'Consulter les CGU',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _showCGUDialog,
           ),
         ],
       ),

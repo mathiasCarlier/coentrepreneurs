@@ -4,10 +4,14 @@ import 'package:coentrepreneurs/services/cgu_service.dart';
 
 class CGUAcceptanceDialog extends StatefulWidget {
   final VoidCallback onAccepted;
+  final bool alreadyAccepted;
+  final String? userId;
 
   const CGUAcceptanceDialog({
     super.key,
     required this.onAccepted,
+    this.alreadyAccepted = false,
+    this.userId,
   });
 
   @override
@@ -19,11 +23,16 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
   bool _acceptsCGU = false;
   final ScrollController _scrollController = ScrollController();
   double _scrollPercentage = 0.0;
+  final CGUService _cguService = CGUService();
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_updateScrollPercentage);
+    // Si déjà accepté, on considère que c'est lu
+    if (widget.alreadyAccepted) {
+      _hasReadCGU = true;
+    }
   }
 
   @override
@@ -96,21 +105,30 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                             ),
                       ),
                     ),
-                    Tooltip(
-                      message: 'Veuillez lire l\'intégralité du document',
-                      child: Icon(
-                        Icons.info_outline,
-                        color: Colors.blue.shade700,
+                    if (!widget.alreadyAccepted)
+                      Tooltip(
+                        message: 'Veuillez lire l\'intégralité du document',
+                        child: Icon(
+                          Icons.info_outline,
+                          color: Colors.blue.shade700,
+                          size: 20,
+                        ),
+                      )
+                    else
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.green.shade700,
                         size: 20,
                       ),
-                    ),
                   ],
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  'Vous devez accepter les conditions d\'utilisation pour accéder à l\'application',
+                  widget.alreadyAccepted
+                      ? 'Vous avez déjà accepté les conditions d\'utilisation'
+                      : 'Vous devez accepter les conditions d\'utilisation pour accéder à l\'application',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: isDark ? Colors.grey[400] : Colors.grey[600],
                       ),
@@ -154,8 +172,8 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                         ),
                       ),
                     ),
-                    // Progress indicator en bas
-                    if (_scrollPercentage < 100)
+                    // Progress indicator en bas (seulement si pas déjà accepté)
+                    if (!widget.alreadyAccepted && _scrollPercentage < 100)
                       Positioned(
                         bottom: 0,
                         left: 0,
@@ -191,148 +209,176 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
 
               const SizedBox(height: 20),
 
-              // Progress message
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: _hasReadCGU
-                    ? Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          border: Border.all(color: Colors.green.shade200),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 16,
-                              color: Colors.green.shade700,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Merci de lire les conditions',
-                              style: TextStyle(
-                                fontSize: 12,
+              // Progress message (seulement si pas déjà accepté)
+              if (!widget.alreadyAccepted)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _hasReadCGU
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            border: Border.all(color: Colors.green.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 16,
                                 color: Colors.green.shade700,
-                                fontWeight: FontWeight.w500,
                               ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          border: Border.all(color: Colors.amber.shade200),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: Colors.amber.shade700,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Veuillez lire entièrement les conditions (${_scrollPercentage.toStringAsFixed(0)}%)',
+                              const SizedBox(width: 8),
+                              Text(
+                                'Merci de lire les conditions',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.amber.shade700,
+                                  color: Colors.green.shade700,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        )
+                      : Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            border: Border.all(color: Colors.amber.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.amber.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Veuillez lire entièrement les conditions (${_scrollPercentage.toStringAsFixed(0)}%)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-              ),
+                ),
 
               const SizedBox(height: 20),
 
-              // Checkbox
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                // La checkbox est désactivée tant que `_hasReadCGU` est false.
-                // L'utilisateur doit scroller jusqu'au seuil pour pouvoir cocher.
-                child: CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  enabled: _hasReadCGU,
-                  value: _acceptsCGU,
-                  onChanged: _hasReadCGU
-                      ? (value) {
-                          setState(() => _acceptsCGU = value ?? false);
-                        }
-                      : null,
-                  title: Text(
-                    'J\'accepte les conditions d\'utilisation',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: _hasReadCGU
-                              ? (isDark ? Colors.white : Colors.black87)
-                              : (isDark ? Colors.grey[600] : Colors.grey[400]),
-                          fontWeight: FontWeight.w500,
-                        ),
+              // Checkbox (seulement si pas déjà accepté)
+              if (!widget.alreadyAccepted)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  // La checkbox est désactivée tant que `_hasReadCGU` est false.
+                  // L'utilisateur doit scroller jusqu'au seuil pour pouvoir cocher.
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    enabled: _hasReadCGU,
+                    value: _acceptsCGU,
+                    onChanged: _hasReadCGU
+                        ? (value) {
+                            setState(() => _acceptsCGU = value ?? false);
+                          }
+                        : null,
+                    title: Text(
+                      'J\'accepte les conditions d\'utilisation',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: _hasReadCGU
+                                ? (isDark ? Colors.white : Colors.black87)
+                                : (isDark ? Colors.grey[600] : Colors.grey[400]),
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    checkColor: Colors.white,
+                    activeColor: Colors.blue.shade700,
                   ),
-                  checkColor: Colors.white,
-                  activeColor: Colors.blue.shade700,
                 ),
-              ),
 
               const SizedBox(height: 24),
 
               // Buttons
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      // Refuser: on ferme le dialog et on renvoie `false` au
-                      // caller. Le traitement de la fermeture/refus est géré
-                      // par le code appelant via `.then((accepted) { ... })`.
-                      onPressed: () {
-                        Navigator.of(context).pop(false);
-                      },
-                      child: Text(
-                        'Refuser',
-                        style: TextStyle(
-                          color: isDark ? Colors.grey[300] : Colors.grey[700],
+                child: widget.alreadyAccepted
+                    ? SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text('Retour'),
+                          ),
                         ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            // Refuser: on ferme le dialog et on renvoie `false` au
+                            // caller. Le traitement de la fermeture/refus est géré
+                            // par le code appelant via `.then((accepted) { ... })`.
+                            onPressed: () {
+                              Navigator.of(context).pop(false);
+                            },
+                            child: Text(
+                              'Refuser',
+                              style: TextStyle(
+                                color: isDark ? Colors.grey[300] : Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            onPressed: _acceptsCGU
+                                ? () async {
+                                    // Sauvegarder via CGUService
+                                    if (widget.userId != null) {
+                                      try {
+                                        await _cguService.acceptCGU(widget.userId!);
+                                      } catch (e) {
+                                        print('Erreur lors de la sauvegarde des CGU: $e');
+                                      }
+                                    }
+                                    if (mounted) {
+                                      Navigator.of(context).pop(true);
+                                      widget.onAccepted();
+                                    }
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade700,
+                              disabledBackgroundColor: Colors.grey.shade300,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              child: Text('Accepter'),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: _acceptsCGU
-                          ? () {
-                              Navigator.of(context).pop(true);
-                              widget.onAccepted();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        disabledBackgroundColor: Colors.grey.shade300,
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        child: Text('Accepter'),
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
               const SizedBox(height: 24),

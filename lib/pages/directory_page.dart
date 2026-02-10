@@ -228,7 +228,7 @@ class DirectoryPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Annuaire CoEntrepreneurs'),
-        backgroundColor: Colors.blue[600],
+        backgroundColor: Colors.green,
         elevation: 0,
       ),
       body: ListView(

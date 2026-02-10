@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
@@ -13,7 +12,8 @@ import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_card.dart';
 import 'package:coentrepreneurs/pages/directory_page.dart';
-import 'package:coentrepreneurs/pages/settings_page.dart'; // ← AJOUTER CETTE LIGNE
+import 'package:coentrepreneurs/pages/settings_page.dart'; 
+import 'package:coentrepreneurs/pages/messages_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => CGUAcceptanceDialog(
+        userId: userId,
         onAccepted: () async {
           try {
             await _cguService.acceptCGU(userId);
@@ -160,7 +161,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Accueil'),
         elevation: 0,
-        backgroundColor: isDark ? const Color.fromARGB(255, 158, 158, 158) : Colors.white,
+        backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [
           // ← AJOUTER CES BOUTONS
           IconButton(
@@ -304,7 +305,7 @@ class _HomePageState extends State<HomePage> {
             _buildEventsSection(context, isDark),
             const SizedBox(height: 32),
 
-            _buildActionsSection(context, isDark),
+            _buildActionsSection(context, user, isDark),
             const SizedBox(height: 24),
           ],
         ),
@@ -328,7 +329,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 4),
               Text(
-                user.nomComplet,
+                '${user.prenom} ${user.nom}',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -431,7 +432,7 @@ class _HomePageState extends State<HomePage> {
                 child: _ContactButton(
                   icon: Icons.lightbulb_outline,
                   label: 'Une idée',
-                  color: Colors.orange,
+                  color: Colors.green,
                   onPressed: () =>
                       _showMessageDialog(context, user, 'Nouvelle idée'),
                 ),
@@ -441,7 +442,7 @@ class _HomePageState extends State<HomePage> {
                 child: _ContactButton(
                   icon: Icons.help_outline,
                   label: 'Besoin d\'aide',
-                  color: Colors.blue,
+                  color: Colors.green,
                   onPressed: () =>
                       _showMessageDialog(context, user, 'Demande d\'aide'),
                 ),
@@ -454,7 +455,7 @@ class _HomePageState extends State<HomePage> {
             child: _ContactButton(
               icon: Icons.report_problem_outlined,
               label: 'Signaler un problème',
-              color: Colors.red,
+              color: Colors.green,
               onPressed: () =>
                   _showMessageDialog(context, user, 'Signalement de problème'),
             ),
@@ -475,26 +476,55 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildActionsSection(BuildContext context, bool isDark) {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: ElevatedButton.icon(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const DirectoryPage()),
-          );
-        },
-        icon: const Icon(Icons.people_outline),
-        label: const Text('Consulter les adhérents'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green[600],
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildActionsSection(BuildContext context, User user, bool isDark) {
+    return Column(
+      children: [
+        // Bouton Messages - visible uniquement pour les admins
+        if (user.role == UserRole.admin)
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const MessagesPage()),
+                );
+              },
+              icon: const Icon(Icons.mail_outline),
+              label: const Text('Consulter les messages'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        if (user.role == UserRole.admin) const SizedBox(height: 12),
+        
+        // Bouton Adhérents - pour tous
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const DirectoryPage()),
+              );
+            },
+            icon: const Icon(Icons.people_outline),
+            label: const Text('Consulter les adhérents'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[600],
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -658,7 +688,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
       // Stocker le message dans Firestore
       await FirebaseFirestore.instance.collection('messages').add({
         'userId': widget.user.uid,
-        'userName': widget.user.nomComplet,
+        'userName': '${widget.user.prenom} ${widget.user.nom}',
         'userEmail': widget.user.email,
         'userRole': widget.user.role.toString(),
         'category': widget.category,
@@ -757,7 +787,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         ElevatedButton(
           onPressed: _isSending ? null : _submitMessage,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue[600],
+            backgroundColor: Colors.green,
           ),
           child: _isSending
               ? const SizedBox(

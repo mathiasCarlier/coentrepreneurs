@@ -45,7 +45,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   Icon(
                     Icons.message_outlined,
                     size: 64,
-                    color: Colors.grey[400],
+                    color: Colors.black,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -143,9 +143,9 @@ class _MessagesPageState extends State<MessagesPage> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.grey[100],
+                              color: const Color.fromARGB(255, 37, 37, 37),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey[300]!),
+                              border: Border.all(color: Colors.black!),
                             ),
                             child: Text(
                               data['message'] ?? '',
