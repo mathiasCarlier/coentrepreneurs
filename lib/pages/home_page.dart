@@ -1,4 +1,4 @@
-// pages/home_page.dart
+// pages/home_page.dart - VERSION MISE À JOUR AVEC FILTRAGE
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -7,13 +7,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
+import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/models/user.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
-import 'package:coentrepreneurs/widgets/event_card.dart';
+import 'package:coentrepreneurs/widgets/event_card_avec_inscription.dart';
 import 'package:coentrepreneurs/pages/directory_page.dart';
 import 'package:coentrepreneurs/pages/settings_page.dart'; 
 import 'package:coentrepreneurs/pages/messages_page.dart';
+import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,15 +26,19 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final CGUService _cguService = CGUService();
+  final EventService _eventService = EventService();
   bool _cguCheckCompleted = false;
   bool _userAcceptedCGU = false;
-  late List<Event> _events;
 
   @override
   void initState() {
     super.initState();
-    _initializeEvents();
     _checkAndHandleCGU();
+    _initializeDefaultEvents();
+  }
+
+  Future<void> _initializeDefaultEvents() async {
+    await _eventService.initializeDefaultEvents();
   }
 
   Future<void> _checkAndHandleCGU() async {
@@ -122,36 +128,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _initializeEvents() {
-    _events = [
-      Event(
-        id: '1',
-        date: DateTime(2026, 3, 5),
-        theme:
-            'La dématérialisation des factures achats/ventes. Comment faire ?',
-        intervenant: 'en cours de définition',
-        entreprise: 'en cours de définition',
-        lieu: 'en cours définition',
-      ),
-      Event(
-        id: '2',
-        date: DateTime(2026, 4, 2),
-        theme: 'Pourquoi la cotisation de l\'assurance augmente ?',
-        intervenant: 'Willy DUBARD',
-        entreprise: 'Allianz',
-        lieu: 'place de la boeuffeterie 86200 LOUDUN',
-      ),
-      Event(
-        id: '3',
-        date: DateTime(2026, 5, 7),
-        theme: 'On fête les 10 ans',
-        intervenant: 'Les membres des coentrepreneurs',
-        entreprise: 'non défini',
-        lieu: 'en cours de définition',
-      ),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
@@ -163,10 +139,8 @@ class _HomePageState extends State<HomePage> {
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [
-          // ← AJOUTER CES BOUTONS
           IconButton(
             onPressed: () {
-              // Récupérer l'utilisateur et naviguer vers les paramètres
               final auth = context.read<AuthService>();
               final userStream = auth.authStateChanges;
               userStream.first.then((user) {
@@ -296,15 +270,10 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildWelcomeSection(context, user, isDark),
             const SizedBox(height: 32),
-
-            // ← SUPPRIMER _buildUserInfoSection
-
             _buildContactSection(context, user, isDark),
             const SizedBox(height: 32),
-
-            _buildEventsSection(context, isDark),
+            _buildEventsSection(context, user, isDark), // ← MODIFIÉ
             const SizedBox(height: 32),
-
             _buildActionsSection(context, user, isDark),
             const SizedBox(height: 24),
           ],
@@ -465,7 +434,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Afficher le dialogue pour écrire un message
   void _showMessageDialog(BuildContext context, User user, String category) {
     showDialog(
       context: context,
@@ -479,7 +447,29 @@ class _HomePageState extends State<HomePage> {
   Widget _buildActionsSection(BuildContext context, User user, bool isDark) {
     return Column(
       children: [
-        // Bouton Messages - visible uniquement pour les admins
+        if (user.role == UserRole.admin)
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const AdminEventsPage()),
+                );
+              },
+              icon: const Icon(Icons.event),
+              label: const Text('Gérer les événements'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        if (user.role == UserRole.admin) const SizedBox(height: 12),
+
         if (user.role == UserRole.admin)
           SizedBox(
             width: double.infinity,
@@ -503,7 +493,6 @@ class _HomePageState extends State<HomePage> {
           ),
         if (user.role == UserRole.admin) const SizedBox(height: 12),
         
-        // Bouton Adhérents - pour tous
         SizedBox(
           width: double.infinity,
           height: 48,
@@ -539,7 +528,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildEventsSection(BuildContext context, bool isDark) {
+  Widget _buildEventsSection(BuildContext context, User user, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -550,17 +539,63 @@ class _HomePageState extends State<HomePage> {
           ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _events.length,
-          itemBuilder: (context, index) {
-            return EventCard(
-              event: _events[index],
-              isDark: isDark,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Détails: ${_events[index].theme}')),
+        StreamBuilder<List<Event>>(
+          stream: _eventService.getAllEventsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('❌ Erreur: ${snapshot.error}'),
+              );
+            }
+
+            final allEvents = snapshot.data ?? [];
+
+            // Filtrer les événements futurs (à partir d'aujourd'hui)
+            final today = DateTime.now();
+            final todayStart = DateTime(today.year, today.month, today.day);
+            
+            final upcomingEvents = allEvents
+                .where((event) {
+                  // Créer une date sans l'heure pour comparer uniquement la date
+                  final eventDate = DateTime(event.date.year, event.date.month, event.date.day);
+                  return eventDate.isAtSameMomentAs(todayStart) || eventDate.isAfter(todayStart);
+                })
+                .take(2) // Prendre seulement les 2 prochains
+                .toList();
+
+            if (upcomingEvents.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Aucun événement prévu pour le moment',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: upcomingEvents.length,
+              itemBuilder: (context, index) {
+                return EventCard(
+                  event: upcomingEvents[index],
+                  isDark: isDark,
+                  currentUser: user, // ← AJOUTER CETTE LIGNE
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Détails: ${upcomingEvents[index].theme}')),
+                    );
+                  },
                 );
               },
             );

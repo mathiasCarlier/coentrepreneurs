@@ -6,6 +6,8 @@ class Event {
   final String intervenant;
   final String entreprise;
   final String lieu;
+  final int maxParticipants;
+  final List<String> registeredUserIds; // UIDs des utilisateurs inscrits
 
   Event({
     required this.id,
@@ -14,43 +16,96 @@ class Event {
     required this.intervenant,
     required this.entreprise,
     required this.lieu,
+    this.maxParticipants = 10,
+    this.registeredUserIds = const [],
   });
 
-  // Méthode pour formater la date
-  String get formattedDate {
-    const monthNames = [
-      'Janvier',
-      'Février',
-      'Mars',
-      'Avril',
-      'Mai',
-      'Juin',
-      'Juillet',
-      'Août',
-      'Septembre',
-      'Octobre',
-      'Novembre',
-      'Décembre'
-    ];
-    const dayNames = [
-      'Lundi',
-      'Mardi',
-      'Mercredi',
-      'Jeudi',
-      'Vendredi',
-      'Samedi',
-      'Dimanche'
-    ];
-
-    final dayName = dayNames[date.weekday - 1];
-    final monthName = monthNames[date.month - 1];
-
-    return '$dayName ${date.day} ${monthName.toLowerCase()} ${date.year}';
+  /// Convertir un document Firestore en Event
+  factory Event.fromFirestore(Map<String, dynamic> data, String docId) {
+    return Event(
+      id: docId,
+      date: (data['date'] as dynamic).toDate() ?? DateTime.now(),
+      theme: data['theme'] ?? '',
+      intervenant: data['intervenant'] ?? '',
+      entreprise: data['entreprise'] ?? '',
+      lieu: data['lieu'] ?? '',
+      maxParticipants: data['maxParticipants'] ?? 10,
+      registeredUserIds: List<String>.from(data['registeredUserIds'] ?? []),
+    );
   }
 
-  // Flags utilitaires utilisés par l'UI pour indiquer si un champ est vraiment
-  // renseigné ou si c'est une valeur placeholder comme "en cours de définition".
-  bool get isDefinedIntervenant => intervenant.toLowerCase() != 'en cours de définition';
-  bool get isDefinedEntreprise => entreprise.toLowerCase() != 'en cours de définition' && entreprise.toLowerCase() != 'non défini';
-  bool get isDefinedLieu => lieu.toLowerCase() != 'en cours définition' && lieu.toLowerCase() != 'non défini';
+  /// Convertir Event en Map pour Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'date': date,
+      'theme': theme,
+      'intervenant': intervenant,
+      'entreprise': entreprise,
+      'lieu': lieu,
+      'maxParticipants': maxParticipants,
+      'registeredUserIds': registeredUserIds,
+    };
+  }
+
+  /// Copier Event avec modifications
+  Event copyWith({
+    String? id,
+    DateTime? date,
+    String? theme,
+    String? intervenant,
+    String? entreprise,
+    String? lieu,
+    int? maxParticipants,
+    List<String>? registeredUserIds,
+  }) {
+    return Event(
+      id: id ?? this.id,
+      date: date ?? this.date,
+      theme: theme ?? this.theme,
+      intervenant: intervenant ?? this.intervenant,
+      entreprise: entreprise ?? this.entreprise,
+      lieu: lieu ?? this.lieu,
+      maxParticipants: maxParticipants ?? this.maxParticipants,
+      registeredUserIds: registeredUserIds ?? this.registeredUserIds,
+    );
+  }
+
+  /// Formater la date au format français (jj/mm/yyyy)
+  String get formattedDate {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  /// Vérifier si l'intervenant est défini et pas vide
+  bool get isDefinedIntervenant {
+    return intervenant.isNotEmpty && 
+           intervenant.toLowerCase() != 'non défini';
+  }
+
+  /// Vérifier si l'entreprise est définie et pas vide
+  bool get isDefinedEntreprise {
+    return entreprise.isNotEmpty && 
+           entreprise.toLowerCase() != 'non défini';
+  }
+
+  /// Vérifier si le lieu est défini et pas vide
+  bool get isDefinedLieu {
+    return lieu.isNotEmpty && 
+           lieu.toLowerCase() != 'non défini' &&
+           lieu.toLowerCase() != 'en cours de définition';
+  }
+
+  /// Obtenir le nombre de participants actuels
+  int get currentParticipants => registeredUserIds.length;
+
+  /// Vérifier si l'événement est complet
+  bool get isFull => currentParticipants >= maxParticipants;
+
+  /// Vérifier si un utilisateur est inscrit
+  bool isUserRegistered(String userId) => registeredUserIds.contains(userId);
+
+  /// Obtenir la formule de places disponibles
+  String get participantsInfo => '$currentParticipants / $maxParticipants';
+
+  /// Obtenir le pourcentage de places occupées
+  double get registrationPercentage => maxParticipants > 0 ? currentParticipants / maxParticipants : 0;
 }
