@@ -16,7 +16,7 @@ class Event {
     required this.intervenant,
     required this.entreprise,
     required this.lieu,
-    this.maxParticipants = 10,
+    this.maxParticipants = 30,
     this.registeredUserIds = const [],
   });
 
@@ -29,7 +29,7 @@ class Event {
       intervenant: data['intervenant'] ?? '',
       entreprise: data['entreprise'] ?? '',
       lieu: data['lieu'] ?? '',
-      maxParticipants: data['maxParticipants'] ?? 10,
+      maxParticipants: data['maxParticipants'] ?? 30,
       registeredUserIds: List<String>.from(data['registeredUserIds'] ?? []),
     );
   }

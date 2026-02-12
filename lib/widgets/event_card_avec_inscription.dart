@@ -9,6 +9,7 @@ class EventCard extends StatefulWidget {
   final Event event;
   final bool isDark;
   final User? currentUser;
+  final bool showParticipantCount;
   final VoidCallback? onTap;
 
   const EventCard({
@@ -16,6 +17,7 @@ class EventCard extends StatefulWidget {
     required this.event,
     required this.isDark,
     this.currentUser,
+    this.showParticipantCount = true,
     this.onTap,
   });
 

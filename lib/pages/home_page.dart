@@ -272,7 +272,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 32),
             _buildContactSection(context, user, isDark),
             const SizedBox(height: 32),
-            _buildEventsSection(context, user, isDark), // ← MODIFIÉ
+            _buildEventsSection(context, user, isDark),
             const SizedBox(height: 32),
             _buildActionsSection(context, user, isDark),
             const SizedBox(height: 24),
@@ -590,7 +590,8 @@ class _HomePageState extends State<HomePage> {
                 return EventCard(
                   event: upcomingEvents[index],
                   isDark: isDark,
-                  currentUser: user, // ← AJOUTER CETTE LIGNE
+                  currentUser: user,
+                  showParticipantCount: false, // ← CACHE LE NOMBRE DE PARTICIPANTS
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Détails: ${upcomingEvents[index].theme}')),
