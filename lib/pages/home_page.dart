@@ -16,6 +16,7 @@ import 'package:coentrepreneurs/pages/directory_page.dart';
 import 'package:coentrepreneurs/pages/settings_page.dart'; 
 import 'package:coentrepreneurs/pages/messages_page.dart';
 import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
+import 'package:coentrepreneurs/pages/faq_page.dart'; 
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -135,10 +136,23 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accueil'),
+        title: const Text('Comment pouvons-nous vous aider ?'),
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [
+          // NOUVEAU : Bouton FAQ
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const FAQPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.help_outline, size: 24),
+            tooltip: 'FAQ',
+          ),
+          // Bouton paramètres existant
           IconButton(
             onPressed: () {
               final auth = context.read<AuthService>();
@@ -156,10 +170,10 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.settings, size: 24),
             tooltip: 'Paramètres',
           ),
-          TextButton.icon(
+          IconButton(
             onPressed: _logout,
-            icon: const Icon(Icons.logout, size: 18),
-            label: const Text('Déconnexion'),
+            icon: const Icon(Icons.logout, size: 24),
+            tooltip: 'Déconnexion',
           ),
           const SizedBox(width: 8),
         ],
