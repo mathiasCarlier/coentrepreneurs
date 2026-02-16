@@ -128,8 +128,9 @@ class _LoginPageState extends State<LoginPage> {
                           validator: (v) {
                             final value = v ?? '';
                             if (value.isEmpty) return 'Mot de passe requis.';
-                            if (value.length < 6)
+                            if (value.length < 6) {
                               return '6 caractères minimum.';
+                            }
                             return null;
                           },
                         ),

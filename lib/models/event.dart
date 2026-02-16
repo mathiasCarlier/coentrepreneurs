@@ -1,4 +1,4 @@
-// models/event.dart
+// models/event.dart - VERSION MISE À JOUR AVEC ACCEPTATIONS
 class Event {
   final String id;
   final DateTime date;
@@ -8,6 +8,7 @@ class Event {
   final String lieu;
   final int maxParticipants;
   final List<String> registeredUserIds; // UIDs des utilisateurs inscrits
+  final List<String> confirmedParticipants; // UIDs des utilisateurs ayant accepté leur participation
 
   Event({
     required this.id,
@@ -18,6 +19,7 @@ class Event {
     required this.lieu,
     this.maxParticipants = 30,
     this.registeredUserIds = const [],
+    this.confirmedParticipants = const [],
   });
 
   /// Convertir un document Firestore en Event
@@ -31,6 +33,7 @@ class Event {
       lieu: data['lieu'] ?? '',
       maxParticipants: data['maxParticipants'] ?? 30,
       registeredUserIds: List<String>.from(data['registeredUserIds'] ?? []),
+      confirmedParticipants: List<String>.from(data['confirmedParticipants'] ?? []),
     );
   }
 
@@ -44,6 +47,7 @@ class Event {
       'lieu': lieu,
       'maxParticipants': maxParticipants,
       'registeredUserIds': registeredUserIds,
+      'confirmedParticipants': confirmedParticipants,
     };
   }
 
@@ -57,6 +61,7 @@ class Event {
     String? lieu,
     int? maxParticipants,
     List<String>? registeredUserIds,
+    List<String>? confirmedParticipants,
   }) {
     return Event(
       id: id ?? this.id,
@@ -67,6 +72,7 @@ class Event {
       lieu: lieu ?? this.lieu,
       maxParticipants: maxParticipants ?? this.maxParticipants,
       registeredUserIds: registeredUserIds ?? this.registeredUserIds,
+      confirmedParticipants: confirmedParticipants ?? this.confirmedParticipants,
     );
   }
 
@@ -102,6 +108,9 @@ class Event {
 
   /// Vérifier si un utilisateur est inscrit
   bool isUserRegistered(String userId) => registeredUserIds.contains(userId);
+
+  /// Vérifier si l'utilisateur a confirmé sa présence
+  bool isUserConfirmed(String userId) => confirmedParticipants.contains(userId);
 
   /// Obtenir la formule de places disponibles
   String get participantsInfo => '$currentParticipants / $maxParticipants';

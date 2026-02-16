@@ -22,7 +22,7 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestion des événements'),
+        title: const Text('Événements'),
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
       ),
@@ -852,6 +852,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         lieu: _lieuController.text.trim(),
         maxParticipants: maxParticipants,
         registeredUserIds: widget.event?.registeredUserIds ?? [],
+        confirmedParticipants: widget.event?.confirmedParticipants ?? [],
       );
 
       if (widget.event == null) {
@@ -865,7 +866,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.event == null
-                ? '✅ Événement créé avec succès'
+                ? '✅ Événement créé !'
                 : '✅ Événement mis à jour'),
             backgroundColor: Colors.green,
           ),
@@ -884,8 +885,6 @@ class _EventFormDialogState extends State<_EventFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return AlertDialog(
       title: Text(widget.event == null ? 'Nouvel événement' : 'Modifier l\'événement'),
       content: SingleChildScrollView(

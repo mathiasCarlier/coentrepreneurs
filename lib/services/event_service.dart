@@ -1,4 +1,4 @@
-// services/event_service.dart
+// services/event_service.dart - VERSION MISE À JOUR AVEC ACCEPTATIONS
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/event.dart';
 
@@ -46,6 +46,7 @@ class EventService {
         'intervenant': event.intervenant,
         'entreprise': event.entreprise,
         'lieu': event.lieu,
+        'registeredUserIds': event.registeredUserIds,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -84,6 +85,80 @@ class EventService {
     }
   }
 
+  // ============================================
+  // NOUVEAU: Méthodes pour les acceptations
+  // ============================================
+
+  /// Accepter la participation d'un utilisateur
+  /// Cette action rend la désinscription impossible
+  Future<void> acceptParticipation(String eventId, String userId) async {
+    try {
+      final eventRef = _firestore.collection(_eventsCollection).doc(eventId);
+      
+      // Vérifier que l'utilisateur est inscrit
+      final eventDoc = await eventRef.get();
+      if (!eventDoc.exists) {
+        throw Exception('Événement non trouvé');
+      }
+
+      final registeredUserIds = List<String>.from(
+        eventDoc['registeredUserIds'] ?? []
+      );
+
+      if (!registeredUserIds.contains(userId)) {
+        throw Exception('Vous n\'êtes pas inscrit à cet événement');
+      }
+
+      // Ajouter à acceptedParticipants
+      await eventRef.update({
+        'acceptedParticipants': FieldValue.arrayUnion([userId]),
+      });
+
+      print('✅ User $userId accepted participation for event $eventId');
+    } catch (e) {
+      print('❌ Error accepting participation: $e');
+      rethrow;
+    }
+  }
+
+  /// Vérifier si un utilisateur a accepté sa participation
+  Future<bool> isUserAccepted(String eventId, String userId) async {
+    try {
+      final eventDoc = await _firestore
+          .collection(_eventsCollection)
+          .doc(eventId)
+          .get();
+
+      if (!eventDoc.exists) return false;
+
+      final acceptedParticipants = List<String>.from(
+        eventDoc['acceptedParticipants'] ?? []
+      );
+
+      return acceptedParticipants.contains(userId);
+    } catch (e) {
+      print('❌ Error checking acceptance: $e');
+      return false;
+    }
+  }
+
+  /// Révoquer l'acceptation d'un utilisateur (admin uniquement)
+  /// Permet de le laisser se désinscrire
+  Future<void> revokeAcceptance(String eventId, String userId) async {
+    try {
+      final eventRef = _firestore.collection(_eventsCollection).doc(eventId);
+      
+      await eventRef.update({
+        'acceptedParticipants': FieldValue.arrayRemove([userId]),
+      });
+
+      print('✅ Acceptance revoked for user $userId from event $eventId');
+    } catch (e) {
+      print('❌ Error revoking acceptance: $e');
+      rethrow;
+    }
+  }
+
   /// Initialiser les événements par défaut (exécuter une seule fois)
   Future<void> initializeDefaultEvents() async {
     try {
@@ -103,6 +178,8 @@ class EventService {
           'intervenant': 'Guillaume Massonnet',
           'entreprise': 'Fiducial loudun',
           'lieu': '2 lieux sont en compétition. Précision dans 3 jours',
+          'registeredUserIds': [],
+          'acceptedParticipants': [],
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
@@ -112,6 +189,8 @@ class EventService {
           'intervenant': 'Willy DUBARD',
           'entreprise': 'Allianz',
           'lieu': 'place de la boeuffeterie 86200 LOUDUN',
+          'registeredUserIds': [],
+          'acceptedParticipants': [],
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
@@ -121,6 +200,8 @@ class EventService {
           'intervenant': 'Les membres des coentrepreneurs',
           'entreprise': 'non défini',
           'lieu': 'en cours de définition',
+          'registeredUserIds': [],
+          'acceptedParticipants': [],
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
@@ -131,9 +212,39 @@ class EventService {
         await _firestore.collection(_eventsCollection).add(eventData);
       }
 
-      print('✅ Default events initialized successfully');
     } catch (e) {
       print('❌ Error initializing default events: $e');
+      rethrow;
+    }
+  }
+
+  /// Confirmer la participation d'un utilisateur à un événement
+  Future<void> confirmParticipation(String eventId, String userId) async {
+    try {
+      final eventRef = _firestore.collection('events').doc(eventId);
+      final eventDoc = await eventRef.get();
+
+      if (!eventDoc.exists) {
+        throw Exception('Événement non trouvé');
+      }
+
+      // Vérifier que l'utilisateur est inscrit
+      final registeredUserIds = List<String>.from(
+        eventDoc['registeredUserIds'] ?? []
+      );
+      if (!registeredUserIds.contains(userId)) {
+        throw Exception('Vous n\'êtes pas inscrit à cet événement');
+      }
+
+      // Ajouter à confirmedParticipants
+      await eventRef.update({
+        'confirmedParticipants': FieldValue.arrayUnion([userId]),
+      });
+
+      print('✅ Participation confirmée pour $userId');
+    } catch (e) {
+      print('❌ Erreur lors de la confirmation: $e');
+      rethrow;
     }
   }
 }

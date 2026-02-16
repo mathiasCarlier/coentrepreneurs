@@ -145,7 +145,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             decoration: BoxDecoration(
                               color: const Color.fromARGB(255, 37, 37, 37),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.black!),
+                              border: Border.all(color: Colors.black),
                             ),
                             child: Text(
                               data['message'] ?? '',

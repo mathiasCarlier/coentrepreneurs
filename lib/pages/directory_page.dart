@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DirectoryPage extends StatelessWidget {
-  const DirectoryPage({Key? key}) : super(key: key);
+  const DirectoryPage({super.key});
 
   // Données de l'annuaire
   static const List<Map<String, dynamic>> members = [
@@ -258,7 +258,7 @@ class DirectoryPage extends StatelessWidget {
             ),
           ),
           // Grille de cartes
-          ...members.map((member) => _buildCard(context, member)).toList(),
+          ...members.map((member) => _buildCard(context, member)),
         ],
       ),
     );

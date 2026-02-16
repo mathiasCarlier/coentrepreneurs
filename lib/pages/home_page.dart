@@ -1,6 +1,5 @@
 // pages/home_page.dart - VERSION MISE À JOUR AVEC FILTRAGE
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -136,7 +135,8 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Comment pouvons-nous vous aider ?'),
+        // MODIFICATION 1 : Remplacer le titre par une icône maison
+        title: const Icon(Icons.home, size: 28),
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [

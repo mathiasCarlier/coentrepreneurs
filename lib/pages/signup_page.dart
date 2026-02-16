@@ -21,7 +21,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
 
-  UserRole _selectedRole = UserRole.adherent;
+  final UserRole _selectedRole = UserRole.adherent;
   bool _loading = false;
   String? _error;
   bool _showPassword = false;
@@ -146,8 +146,9 @@ class _SignUpPageState extends State<SignUpPage> {
                             validator: (v) {
                               final value = (v ?? '').trim();
                               if (value.isEmpty) return 'Email requis.';
-                              if (!value.contains('@'))
+                              if (!value.contains('@')) {
                                 return 'Email invalide.';
+                              }
                               return null;
                             },
                           ),
@@ -188,8 +189,9 @@ class _SignUpPageState extends State<SignUpPage> {
                             validator: (v) {
                               final value = v ?? '';
                               if (value.isEmpty) return 'Mot de passe requis.';
-                              if (value.length < 6)
+                              if (value.length < 6) {
                                 return '6 caractères minimum.';
+                              }
                               return null;
                             },
                           ),
@@ -213,8 +215,9 @@ class _SignUpPageState extends State<SignUpPage> {
                             textInputAction: TextInputAction.done,
                             onFieldSubmitted: (_) => _submit(),
                             validator: (v) {
-                              if (v != _passwordCtrl.text)
+                              if (v != _passwordCtrl.text) {
                                 return 'Les mots de passe ne correspondent pas.';
+                              }
                               return null;
                             },
                           ),
