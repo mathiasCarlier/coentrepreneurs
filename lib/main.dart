@@ -14,6 +14,8 @@ import 'package:coentrepreneurs/pages/login_page.dart';
 import 'package:coentrepreneurs/pages/signup_page.dart';
 import 'package:coentrepreneurs/pages/home_page.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   print('INIT FIREBASE...');
@@ -22,6 +24,8 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('FIREBASE OK');
+  
+    
   } catch (e) {
     print('FIREBASE ERROR: $e');
   }

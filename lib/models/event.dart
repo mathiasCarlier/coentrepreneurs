@@ -1,4 +1,12 @@
-// models/event.dart - VERSION MISE À JOUR AVEC ACCEPTATIONS
+// models/event.dart - VERSION AMÉLIORÉE AVEC ÉTAT
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+enum EventStatus {
+  pending,    // En attente - inscriptions ouvertes
+  started,    // Commencé - confirmations ouvertes
+  finished,   // Terminé
+}
+
 class Event {
   final String id;
   final DateTime date;
@@ -7,8 +15,9 @@ class Event {
   final String entreprise;
   final String lieu;
   final int maxParticipants;
-  final List<String> registeredUserIds; // UIDs des utilisateurs inscrits
-  final List<String> confirmedParticipants; // UIDs des utilisateurs ayant accepté leur participation
+  final List<String> registeredUserIds;      // Inscrits
+  final List<String> confirmedParticipants;  // Confirmés présents
+  final EventStatus status;                   // État de l'événement
 
   Event({
     required this.id,
@@ -17,29 +26,48 @@ class Event {
     required this.intervenant,
     required this.entreprise,
     required this.lieu,
-    this.maxParticipants = 30,
+    required this.maxParticipants,
     this.registeredUserIds = const [],
     this.confirmedParticipants = const [],
+    this.status = EventStatus.pending,
   });
 
-  /// Convertir un document Firestore en Event
-  factory Event.fromFirestore(Map<String, dynamic> data, String docId) {
-    return Event(
-      id: docId,
-      date: (data['date'] as dynamic).toDate() ?? DateTime.now(),
-      theme: data['theme'] ?? '',
-      intervenant: data['intervenant'] ?? '',
-      entreprise: data['entreprise'] ?? '',
-      lieu: data['lieu'] ?? '',
-      maxParticipants: data['maxParticipants'] ?? 30,
-      registeredUserIds: List<String>.from(data['registeredUserIds'] ?? []),
-      confirmedParticipants: List<String>.from(data['confirmedParticipants'] ?? []),
-    );
+  // ✅ Getters pour simplifier le code
+  int get currentParticipants => registeredUserIds.length;
+  bool get isFull => currentParticipants >= maxParticipants;
+  double get registrationPercentage => 
+      maxParticipants > 0 ? currentParticipants / maxParticipants : 0;
+  
+  String get formattedDate {
+    final months = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun', 
+                   'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  /// Convertir Event en Map pour Firestore
+  bool get isDefinedIntervenant => intervenant.isNotEmpty;
+  bool get isDefinedEntreprise => entreprise.isNotEmpty;
+  bool get isDefinedLieu => lieu.isNotEmpty;
+
+  // ✅ Vérifier si utilisateur est inscrit
+  bool isUserRegistered(String uid) => registeredUserIds.contains(uid);
+
+  // ✅ Vérifier si utilisateur a confirmé sa présence
+  bool isUserConfirmed(String uid) => confirmedParticipants.contains(uid);
+
+  // ✅ Vérifier si utilisateur peut confirmer (inscrit + événement commencé)
+  bool canUserConfirm(String uid) => 
+      status == EventStatus.started && isUserRegistered(uid);
+
+  // ✅ Vérifier si événement est commencé
+  bool get isStarted => status == EventStatus.started;
+
+  // ✅ Vérifier si événement est terminé
+  bool get isFinished => status == EventStatus.finished;
+
+  // ✅ Conversion vers/depuis Firestore
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'date': date,
       'theme': theme,
       'intervenant': intervenant,
@@ -48,10 +76,36 @@ class Event {
       'maxParticipants': maxParticipants,
       'registeredUserIds': registeredUserIds,
       'confirmedParticipants': confirmedParticipants,
+      'status': status.toString().split('.').last, // 'pending', 'started', 'finished'
     };
   }
 
-  /// Copier Event avec modifications
+  factory Event.fromMap(Map<String, dynamic> map) {
+    return Event(
+      id: map['id'] ?? '',
+      date: (map['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      theme: map['theme'] ?? '',
+      intervenant: map['intervenant'] ?? '',
+      entreprise: map['entreprise'] ?? '',
+      lieu: map['lieu'] ?? '',
+      maxParticipants: map['maxParticipants'] ?? 30,
+      registeredUserIds: List<String>.from(map['registeredUserIds'] ?? []),
+      confirmedParticipants: List<String>.from(map['confirmedParticipants'] ?? []),
+      status: _statusFromString(map['status'] ?? 'pending'),
+    );
+  }
+
+  static EventStatus _statusFromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'started':
+        return EventStatus.started;
+      case 'finished':
+        return EventStatus.finished;
+      default:
+        return EventStatus.pending;
+    }
+  }
+
   Event copyWith({
     String? id,
     DateTime? date,
@@ -62,6 +116,7 @@ class Event {
     int? maxParticipants,
     List<String>? registeredUserIds,
     List<String>? confirmedParticipants,
+    EventStatus? status,
   }) {
     return Event(
       id: id ?? this.id,
@@ -73,48 +128,7 @@ class Event {
       maxParticipants: maxParticipants ?? this.maxParticipants,
       registeredUserIds: registeredUserIds ?? this.registeredUserIds,
       confirmedParticipants: confirmedParticipants ?? this.confirmedParticipants,
+      status: status ?? this.status,
     );
   }
-
-  /// Formater la date au format français (jj/mm/yyyy)
-  String get formattedDate {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  /// Vérifier si l'intervenant est défini et pas vide
-  bool get isDefinedIntervenant {
-    return intervenant.isNotEmpty && 
-           intervenant.toLowerCase() != 'non défini';
-  }
-
-  /// Vérifier si l'entreprise est définie et pas vide
-  bool get isDefinedEntreprise {
-    return entreprise.isNotEmpty && 
-           entreprise.toLowerCase() != 'non défini';
-  }
-
-  /// Vérifier si le lieu est défini et pas vide
-  bool get isDefinedLieu {
-    return lieu.isNotEmpty && 
-           lieu.toLowerCase() != 'non défini' &&
-           lieu.toLowerCase() != 'en cours de définition';
-  }
-
-  /// Obtenir le nombre de participants actuels
-  int get currentParticipants => registeredUserIds.length;
-
-  /// Vérifier si l'événement est complet
-  bool get isFull => currentParticipants >= maxParticipants;
-
-  /// Vérifier si un utilisateur est inscrit
-  bool isUserRegistered(String userId) => registeredUserIds.contains(userId);
-
-  /// Vérifier si l'utilisateur a confirmé sa présence
-  bool isUserConfirmed(String userId) => confirmedParticipants.contains(userId);
-
-  /// Obtenir la formule de places disponibles
-  String get participantsInfo => '$currentParticipants / $maxParticipants';
-
-  /// Obtenir le pourcentage de places occupées
-  double get registrationPercentage => maxParticipants > 0 ? currentParticipants / maxParticipants : 0;
 }

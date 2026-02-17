@@ -1,4 +1,4 @@
-// pages/admin_events_page.dart - VERSION AMÉLIORÉE AVEC DÉTAILS
+// pages/admin_events_page.dart - VERSION AVEC CONTRÔLE D'ÉTAT
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -172,6 +172,28 @@ class _EventCard extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  String _getStatusLabel() {
+    switch (event.status) {
+      case EventStatus.pending:
+        return 'En attente';
+      case EventStatus.started:
+        return 'En cours';
+      case EventStatus.finished:
+        return 'Terminé';
+    }
+  }
+
+  Color _getStatusColor() {
+    switch (event.status) {
+      case EventStatus.pending:
+        return Colors.orange;
+      case EventStatus.started:
+        return Colors.purple;
+      case EventStatus.finished:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -184,7 +206,7 @@ class _EventCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Titre et Date
+              // Titre, Date et Statut
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,20 +222,42 @@ class _EventCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _formatDate(event.date),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _formatDate(event.date),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[800],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor().withOpacity(0.2),
+                          border: Border.all(color: _getStatusColor()),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _getStatusLabel(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _getStatusColor(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -299,6 +343,34 @@ class _EventCard extends StatelessWidget {
                     ),
                 ],
               ),
+
+              // Confirmés si l'événement a commencé
+              if (event.isStarted)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle, size: 16, color: Colors.green[600]),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${event.confirmedParticipants.length} confirmés',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               
               // Indication "Cliquez pour voir les détails"
               const SizedBox(height: 12),
@@ -322,7 +394,7 @@ class _EventCard extends StatelessWidget {
 }
 
 // DÉTAILS COMPLETS - Bottom Sheet au clic
-class _EventDetailsSheet extends StatelessWidget {
+class _EventDetailsSheet extends StatefulWidget {
   final Event event;
   final EventService eventService;
   final VoidCallback onEdit;
@@ -334,6 +406,79 @@ class _EventDetailsSheet extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
   });
+
+  @override
+  State<_EventDetailsSheet> createState() => _EventDetailsSheetState();
+}
+
+class _EventDetailsSheetState extends State<_EventDetailsSheet> {
+  bool _isToggling = false;
+
+  Future<void> _toggleEventStatus() async {
+    final newStatus = widget.event.status == EventStatus.pending
+        ? EventStatus.started
+        : EventStatus.finished;
+
+    final message = newStatus == EventStatus.started
+        ? 'Démarrer l\'événement ?'
+        : 'Terminer l\'événement ?';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: newStatus == EventStatus.started
+                  ? Colors.purple[600]
+                  : Colors.grey[600],
+            ),
+            child: Text(
+              newStatus == EventStatus.started ? 'Démarrer' : 'Terminer',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      setState(() => _isToggling = true);
+
+      try {
+        await widget.eventService.updateEventStatus(
+          widget.event.id,
+          newStatus,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                newStatus == EventStatus.started
+                    ? '✅ Événement commencé - Les confirmations sont ouvertes'
+                    : '✅ Événement terminé',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ Erreur: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isToggling = false);
+      }
+    }
+  }
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
@@ -370,7 +515,7 @@ class _EventDetailsSheet extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                event.theme,
+                                widget.event.theme,
                                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -379,7 +524,7 @@ class _EventDetailsSheet extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _formatDate(event.date),
+                                _formatDate(widget.event.date),
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: Colors.blue[400],
                                   fontWeight: FontWeight.w600,
@@ -406,10 +551,28 @@ class _EventDetailsSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Badge Statut
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'État: ${_getStatusLabel()}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[800],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
                     // Intervenant
                     _DetailSection(
                       title: 'Intervenant',
-                      value: event.intervenant,
+                      value: widget.event.intervenant,
                       icon: Icons.person_outline,
                       isDark: isDark,
                     ),
@@ -418,7 +581,7 @@ class _EventDetailsSheet extends StatelessWidget {
                     // Entreprise
                     _DetailSection(
                       title: 'Entreprise',
-                      value: event.entreprise,
+                      value: widget.event.entreprise,
                       icon: Icons.business_outlined,
                       isDark: isDark,
                     ),
@@ -427,7 +590,7 @@ class _EventDetailsSheet extends StatelessWidget {
                     // Lieu
                     _DetailSection(
                       title: 'Lieu',
-                      value: event.lieu,
+                      value: widget.event.lieu,
                       icon: Icons.location_on_outlined,
                       isDark: isDark,
                     ),
@@ -436,21 +599,38 @@ class _EventDetailsSheet extends StatelessWidget {
                     // Capacité et Inscrits
                     _DetailSection(
                       title: 'Capacité',
-                      value: '${event.currentParticipants} / ${event.maxParticipants} participants',
+                      value: '${widget.event.currentParticipants} / ${widget.event.maxParticipants} participants',
                       icon: Icons.people_outline,
                       isDark: isDark,
-                      valueColor: event.isFull ? Colors.red : Colors.blue,
+                      valueColor: widget.event.isFull ? Colors.red : Colors.blue,
                     ),
                     const SizedBox(height: 20),
 
+                    // Confirmés si commencé
+                    if (widget.event.isStarted)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _DetailSection(
+                            title: 'Confirmés',
+                            value: '${widget.event.confirmedParticipants.length} présents',
+                            icon: Icons.check_circle,
+                            isDark: isDark,
+                            valueColor: Colors.green,
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+
                     // Liste des participants
-                    if (event.registeredUserIds.isNotEmpty)
+                    if (widget.event.registeredUserIds.isNotEmpty)
                       _ParticipantsSection(
-                        userIds: event.registeredUserIds,
+                        userIds: widget.event.registeredUserIds,
+                        confirmedIds: widget.event.confirmedParticipants,
                         isDark: isDark,
                       ),
 
-                    if (event.registeredUserIds.isEmpty)
+                    if (widget.event.registeredUserIds.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Center(
@@ -467,32 +647,74 @@ class _EventDetailsSheet extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // Boutons d'action
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: onEdit,
-                            icon: const Icon(Icons.edit),
-                            label: const Text('Modifier'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue[600],
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
+                        // Bouton de contrôle d'état
+                        ElevatedButton.icon(
+                          onPressed: _isToggling ? null : _toggleEventStatus,
+                          icon: _isToggling
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                                  ),
+                                )
+                              : Icon(
+                                  widget.event.status == EventStatus.pending
+                                      ? Icons.play_arrow
+                                      : Icons.stop_circle,
+                                ),
+                          label: Text(
+                            widget.event.status == EventStatus.pending
+                                ? '▶️ Démarrer l\'événement'
+                                : widget.event.status == EventStatus.started
+                                    ? '⏹️ Terminer l\'événement'
+                                    : 'Événement terminé',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.event.status == EventStatus.pending
+                                ? Colors.purple[600]
+                                : widget.event.status == EventStatus.started
+                                    ? Colors.orange[600]
+                                    : Colors.grey[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: onDelete,
-                            icon: const Icon(Icons.delete),
-                            label: const Text('Supprimer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red[600],
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                        const SizedBox(height: 12),
+                        
+                        // Autres actions
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: widget.onEdit,
+                                icon: const Icon(Icons.edit),
+                                label: const Text('Modifier'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue[600],
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: widget.onDelete,
+                                icon: const Icon(Icons.delete),
+                                label: const Text('Supprimer'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[600],
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -504,6 +726,17 @@ class _EventDetailsSheet extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _getStatusLabel() {
+    switch (widget.event.status) {
+      case EventStatus.pending:
+        return 'En attente';
+      case EventStatus.started:
+        return 'En cours';
+      case EventStatus.finished:
+        return 'Terminé';
+    }
   }
 }
 
@@ -567,10 +800,12 @@ class _DetailSection extends StatelessWidget {
 // Widget pour afficher la liste des participants
 class _ParticipantsSection extends StatefulWidget {
   final List<String> userIds;
+  final List<String> confirmedIds;
   final bool isDark;
 
   const _ParticipantsSection({
     required this.userIds,
+    required this.confirmedIds,
     required this.isDark,
   });
 
@@ -693,6 +928,8 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
               itemCount: participants.length,
               itemBuilder: (context, index) {
                 final user = participants[index];
+                final isConfirmed = widget.confirmedIds.contains(user.uid);
+                
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
@@ -701,7 +938,12 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
                       color: widget.isDark ? Colors.grey[800] : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: widget.isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                        color: isConfirmed
+                            ? Colors.green[400]!
+                            : widget.isDark
+                                ? Colors.grey[700]!
+                                : Colors.grey[300]!,
+                        width: isConfirmed ? 2 : 1,
                       ),
                     ),
                     child: Row(
@@ -710,7 +952,7 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.blue[600],
+                            color: isConfirmed ? Colors.green[600] : Colors.blue[600],
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Center(
@@ -747,6 +989,25 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
                             ],
                           ),
                         ),
+                        if (isConfirmed)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green[100],
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '✅ Confirmé',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -760,7 +1021,7 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
   }
 }
 
-// Formulaire de création/édition (inchangé)
+// Formulaire de création/édition
 class _EventFormDialog extends StatefulWidget {
   final EventService eventService;
   final Event? event;
@@ -853,6 +1114,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         maxParticipants: maxParticipants,
         registeredUserIds: widget.event?.registeredUserIds ?? [],
         confirmedParticipants: widget.event?.confirmedParticipants ?? [],
+        status: widget.event?.status ?? EventStatus.pending,
       );
 
       if (widget.event == null) {

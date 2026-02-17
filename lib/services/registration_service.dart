@@ -1,104 +1,276 @@
-// services/registration_service.dart
+// services/registration_service.dart - CORRIGÉ
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/event.dart';
+import 'package:coentrepreneurs/models/user.dart';
 
 class RegistrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String _eventsCollection = 'events';
+
+  // ========================================
+  // 📝 INSCRIPTION AUX ÉVÉNEMENTS
+  // ========================================
 
   /// Inscrire un utilisateur à un événement
   Future<void> registerUserToEvent(String eventId, String userId) async {
     try {
-      await _firestore.collection(_eventsCollection).doc(eventId).update({
+      await _firestore.collection('events').doc(eventId).update({
         'registeredUserIds': FieldValue.arrayUnion([userId]),
       });
-      print('✅ Utilisateur inscrit à l\'événement: $eventId');
     } catch (e) {
-      print('❌ Erreur lors de l\'inscription: $e');
-      rethrow;
+      throw Exception('Erreur lors de l\'inscription: $e');
     }
   }
 
   /// Désinscrire un utilisateur d'un événement
   Future<void> unregisterUserFromEvent(String eventId, String userId) async {
     try {
-      await _firestore.collection(_eventsCollection).doc(eventId).update({
+      await _firestore.collection('events').doc(eventId).update({
         'registeredUserIds': FieldValue.arrayRemove([userId]),
+        'confirmedParticipants': FieldValue.arrayRemove([userId]),
       });
-      print('✅ Utilisateur désinscrit de l\'événement: $eventId');
     } catch (e) {
-      print('❌ Erreur lors de la désinscription: $e');
-      rethrow;
+      throw Exception('Erreur lors de la désinscription: $e');
     }
   }
 
-  /// Vérifier si un utilisateur est inscrit à un événement
+  // ========================================
+  // 🔍 RÉCUPÉRER LES ÉVÉNEMENTS DE L'UTILISATEUR
+  // ========================================
+
+  /// Obtenir les événements auxquels l'utilisateur est inscrit (une fois)
+  Future<List<Event>> getUserRegisteredEvents(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('events')
+          .where('registeredUserIds', arrayContains: userId)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => Event.fromMap(doc.data())) // ✅ Utiliser fromMap
+          .toList();
+    } catch (e) {
+      throw Exception('Erreur lors de la récupération des événements inscrits: $e');
+    }
+  }
+
+  /// Obtenir les événements auxquels l'utilisateur est inscrit (stream)
+  Stream<List<Event>> getUserRegisteredEventsStream(String userId) {
+    return _firestore
+        .collection('events')
+        .where('registeredUserIds', arrayContains: userId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Event.fromMap(doc.data())) // ✅ Utiliser fromMap
+            .toList());
+  }
+
+  /// Obtenir les événements où l'utilisateur a confirmé sa présence (une fois)
+  Future<List<Event>> getUserConfirmedEvents(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('events')
+          .where('confirmedParticipants', arrayContains: userId)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => Event.fromMap(doc.data())) // ✅ Utiliser fromMap
+          .toList();
+    } catch (e) {
+      throw Exception('Erreur lors de la récupération des événements confirmés: $e');
+    }
+  }
+
+  /// Obtenir les événements où l'utilisateur a confirmé sa présence (stream)
+  Stream<List<Event>> getUserConfirmedEventsStream(String userId) {
+    return _firestore
+        .collection('events')
+        .where('confirmedParticipants', arrayContains: userId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Event.fromMap(doc.data())) // ✅ Utiliser fromMap
+            .toList());
+  }
+
+  // ========================================
+  // ✅ CONFIRMATION DE PRÉSENCE
+  // ========================================
+
+  /// Confirmer la présence de l'utilisateur
+  Future<void> confirmUserPresence(String eventId, String userId) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'confirmedParticipants': FieldValue.arrayUnion([userId]),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de la confirmation de présence: $e');
+    }
+  }
+
+  /// Enlever la confirmation de présence
+  Future<void> removePresenceConfirmation(String eventId, String userId) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'confirmedParticipants': FieldValue.arrayRemove([userId]),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de la suppression de la confirmation: $e');
+    }
+  }
+
+  // ========================================
+  // 📊 VÉRIFICATIONS
+  // ========================================
+
+  /// Vérifier si l'utilisateur est inscrit à un événement
   Future<bool> isUserRegistered(String eventId, String userId) async {
     try {
-      final doc = await _firestore
-          .collection(_eventsCollection)
-          .doc(eventId)
-          .get();
+      final event = await _firestore.collection('events').doc(eventId).get();
+      if (!event.exists) return false;
 
-      if (doc.exists) {
-        final event = Event.fromFirestore(doc.data()!, doc.id);
-        return event.isUserRegistered(userId);
-      }
-      return false;
+      final data = event.data() as Map<String, dynamic>;
+      final registeredUserIds = List<String>.from(data['registeredUserIds'] ?? []);
+      
+      return registeredUserIds.contains(userId);
     } catch (e) {
-      print('❌ Erreur lors de la vérification: $e');
-      return false;
+      throw Exception('Erreur lors de la vérification d\'inscription: $e');
     }
   }
 
-  /// Obtenir les inscriptions d'un utilisateur (événements auxquels il est inscrit)
-  Stream<List<Event>> getUserRegistrations(String userId) {
-    return _firestore
-        .collection(_eventsCollection)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => Event.fromFirestore(doc.data(), doc.id))
-          .where((event) => event.isUserRegistered(userId))
-          .toList();
-    });
-  }
-
-  /// Obtenir tous les participants d'un événement
-  Future<List<String>> getEventParticipants(String eventId) async {
+  /// Vérifier si l'utilisateur a confirmé sa présence
+  Future<bool> isUserConfirmed(String eventId, String userId) async {
     try {
-      final doc = await _firestore
-          .collection(_eventsCollection)
-          .doc(eventId)
-          .get();
+      final event = await _firestore.collection('events').doc(eventId).get();
+      if (!event.exists) return false;
 
-      if (doc.exists) {
-        final event = Event.fromFirestore(doc.data()!, doc.id);
-        return event.registeredUserIds;
-      }
-      return [];
+      final data = event.data() as Map<String, dynamic>;
+      final confirmedParticipants = List<String>.from(data['confirmedParticipants'] ?? []);
+      
+      return confirmedParticipants.contains(userId);
     } catch (e) {
-      print('❌ Erreur lors de la récupération des participants: $e');
-      return [];
+      throw Exception('Erreur lors de la vérification de confirmation: $e');
     }
   }
 
-  /// Vérifier si un événement est complet
-  Future<bool> isEventFull(String eventId) async {
+  /// Obtenir le nombre d'inscrits pour un événement
+  Future<int> getRegisteredCount(String eventId) async {
     try {
-      final doc = await _firestore
-          .collection(_eventsCollection)
-          .doc(eventId)
-          .get();
+      final event = await _firestore.collection('events').doc(eventId).get();
+      if (!event.exists) return 0;
 
-      if (doc.exists) {
-        final event = Event.fromFirestore(doc.data()!, doc.id);
-        return event.isFull;
-      }
-      return false;
+      final data = event.data() as Map<String, dynamic>;
+      final registeredUserIds = List<String>.from(data['registeredUserIds'] ?? []);
+      
+      return registeredUserIds.length;
     } catch (e) {
-      print('❌ Erreur lors de la vérification de capacité: $e');
-      return false;
+      throw Exception('Erreur lors du comptage des inscrits: $e');
+    }
+  }
+
+  /// Obtenir le nombre de confirmés pour un événement
+  Future<int> getConfirmedCount(String eventId) async {
+    try {
+      final event = await _firestore.collection('events').doc(eventId).get();
+      if (!event.exists) return 0;
+
+      final data = event.data() as Map<String, dynamic>;
+      final confirmedParticipants = List<String>.from(data['confirmedParticipants'] ?? []);
+      
+      return confirmedParticipants.length;
+    } catch (e) {
+      throw Exception('Erreur lors du comptage des confirmés: $e');
+    }
+  }
+
+  // ========================================
+  // 👥 GESTION DES UTILISATEURS
+  // ========================================
+
+  /// Obtenir tous les utilisateurs inscrits à un événement
+  Future<List<User>> getRegisteredUsers(String eventId) async {
+    try {
+      final event = await _firestore.collection('events').doc(eventId).get();
+      if (!event.exists) return [];
+
+      final data = event.data() as Map<String, dynamic>;
+      final registeredUserIds = List<String>.from(data['registeredUserIds'] ?? []);
+
+      final users = <User>[];
+      for (final userId in registeredUserIds) {
+        try {
+          final userDoc = await _firestore.collection('users').doc(userId).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+            users.add(User(
+              uid: userId,
+              email: userData['email'] ?? '',
+              nom: userData['nom'] ?? 'Inconnu',
+              prenom: userData['prenom'] ?? '',
+              role: _parseUserRole(userData['role']),
+              phone: userData['telephone'],
+            ));
+          }
+        } catch (e) {
+          print('Erreur lors de la récupération de l\'utilisateur $userId: $e');
+        }
+      }
+
+      return users;
+    } catch (e) {
+      throw Exception('Erreur lors de la récupération des utilisateurs inscrits: $e');
+    }
+  }
+
+  /// Obtenir tous les utilisateurs ayant confirmé pour un événement
+  Future<List<User>> getConfirmedUsers(String eventId) async {
+    try {
+      final event = await _firestore.collection('events').doc(eventId).get();
+      if (!event.exists) return [];
+
+      final data = event.data() as Map<String, dynamic>;
+      final confirmedUserIds = List<String>.from(data['confirmedParticipants'] ?? []);
+
+      final users = <User>[];
+      for (final userId in confirmedUserIds) {
+        try {
+          final userDoc = await _firestore.collection('users').doc(userId).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data() as Map<String, dynamic>;
+            users.add(User(
+              uid: userId,
+              email: userData['email'] ?? '',
+              nom: userData['nom'] ?? 'Inconnu',
+              prenom: userData['prenom'] ?? '',
+              role: _parseUserRole(userData['role']),
+              phone: userData['telephone'],
+            ));
+          }
+        } catch (e) {
+          print('Erreur lors de la récupération de l\'utilisateur $userId: $e');
+        }
+      }
+
+      return users;
+    } catch (e) {
+      throw Exception('Erreur lors de la récupération des utilisateurs confirmés: $e');
+    }
+  }
+
+  // ========================================
+  // 🔧 HELPERS
+  // ========================================
+
+  UserRole _parseUserRole(dynamic roleValue) {
+    if (roleValue == null) return UserRole.adherent;
+    
+    final role = roleValue.toString().toLowerCase();
+    switch (role) {
+      case 'admin':
+        return UserRole.admin;
+      case 'invite':
+        return UserRole.invite;
+      default:
+        return UserRole.adherent;
     }
   }
 }

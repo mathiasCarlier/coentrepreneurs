@@ -1,10 +1,12 @@
-// widgets/event_card.dart - VERSION AVEC CONFIRMATION DE PRÉSENCE
+// widgets/event_card.dart - VERSION CORRIGÉE
 import 'package:flutter/material.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart';
 import 'package:coentrepreneurs/services/registration_service.dart';
 import 'package:coentrepreneurs/services/location_service.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
+import 'package:coentrepreneurs/widgets/invitation_dialog.dart';
+import 'package:coentrepreneurs/services/invitation_service.dart';
 
 class EventCard extends StatefulWidget {
   final Event event;
@@ -31,6 +33,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   late Animation<double> _elevation;
   final RegistrationService _registrationService = RegistrationService();
   final EventService _eventService = EventService();
+  final InvitationService _invitationService = InvitationService();
   late bool _isUserRegistered;
   bool _isLoading = false;
 
@@ -55,14 +58,12 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  // État 2: Inscrit mais pas confirmé
   bool get _isUserInscribed {
     return widget.currentUser != null
         ? widget.event.isUserRegistered(widget.currentUser!.uid)
         : false;
   }
 
-  // État 3: Confirmé
   bool get _isUserConfirmed {
     return widget.currentUser != null
         ? widget.event.isUserConfirmed(widget.currentUser!.uid)
@@ -80,11 +81,11 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
       return;
     }
 
-    // Empêcher la désinscription si confirmé
-    if (_isUserInscribed && _isUserConfirmed) {
+    // Empêcher la désinscription si l'événement a commencé
+    if (_isUserInscribed && widget.event.isStarted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('❌ Vous ne pouvez pas annuler après avoir confirmé votre présence'),
+          content: Text('❌ Impossible d\'annuler après le début de l\'événement'),
           backgroundColor: Colors.red,
         ),
       );
@@ -95,7 +96,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
 
     try {
       if (_isUserInscribed) {
-        // Désinscrire (seulement si pas confirmé)
+        // Désinscrire (seulement si événement pas commencé)
         await _registrationService.unregisterUserFromEvent(
           widget.event.id,
           widget.currentUser!.uid,
@@ -110,6 +111,19 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           );
         }
       } else {
+        // Vérifier si inscriptions toujours ouvertes (événement pas commencé)
+        if (widget.event.isStarted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('❌ Les inscriptions sont fermées'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
         // Vérifier la capacité
         if (widget.event.isFull) {
           if (mounted) {
@@ -123,20 +137,63 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           return;
         }
 
-        // Inscrire (État 2: Inscrit, pas encore confirmé)
+        // Inscrire
         await _registrationService.registerUserToEvent(
           widget.event.id,
           widget.currentUser!.uid,
         );
         if (mounted) {
           setState(() => _isUserRegistered = true);
+          
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✅ Inscription confirmée!'),
               backgroundColor: Colors.green,
             ),
           );
+
+          // ✨ AFFICHER LE DIALOGUE D'INVITATION
+          print('⏳ Attente de 500ms avant d\'afficher le dialogue d\'invitation...');
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            print('🔔 Affichage du dialogue d\'invitation');
+            _showInvitationDialog();
+          }
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _confirmPresence() async {
+    if (widget.currentUser == null || !widget.event.canUserConfirm(widget.currentUser!.uid)) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _eventService.confirmUserPresence(
+        widget.event.id,
+        widget.currentUser!.uid,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Votre présence est confirmée!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -173,7 +230,60 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     }
   }
 
+  Future<void> _showInvitationDialog() async {
+    if (widget.currentUser == null) {
+      print('❌ Erreur: Pas d\'utilisateur connecté');
+      return;
+    }
 
+    print('📨 Ouverture du dialogue d\'invitation...');
+    final invitations = await showInvitationDialog(
+      context,
+      eventId: widget.event.id,
+      currentUserId: widget.currentUser!.uid,
+    );
+
+    print('💬 Invitations retournées: $invitations');
+    if (invitations != null && invitations.isNotEmpty && mounted) {
+      print('✅ Envoi des invitations...');
+      _sendInvitations(invitations);
+    } else {
+      print('⚠️ Aucune invitation à envoyer ou dialogue fermé');
+    }
+  }
+
+  Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
+    print('🚀 Envoi de ${invitations.length} invitation(s)...');
+    try {
+      await _invitationService.createInvitations(
+        eventId: widget.event.id,
+        invitedByUserId: widget.currentUser!.uid,
+        invitations: invitations,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ ${invitations.length} invitation(s) envoyée(s) avec succès!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        print('✅ Invitations envoyées avec succès!');
+      }
+    } catch (e) {
+      print('❌ Erreur lors de l\'envoi: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,10 +314,10 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: _isUserConfirmed
-                    ? _buildConfirmedView()  // État 3: Confirmé
+                    ? _buildConfirmedView()
                     : _isUserInscribed
-                        ? _buildInscribedView()  // État 2: Inscrit
-                        : _buildUnregisteredView(),  // État 1: Non inscrit
+                        ? _buildInscribedView()
+                        : _buildUnregisteredView(),
               ),
             ),
           );
@@ -217,9 +327,11 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   // ========================================
-  // ÉTAT 1: NON INSCRIT (Vue complète)
+  // ÉTAT 1: NON INSCRIT
   // ========================================
   Widget _buildUnregisteredView() {
+    final canRegister = !widget.event.isStarted && !widget.event.isFull;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -275,14 +387,40 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
 
         const SizedBox(height: 16),
 
+        // Message si inscriptions fermées
+        if (widget.event.isStarted)
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.orange[900]?.withOpacity(0.2),
+              border: Border.all(color: Colors.orange[400]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.lock, size: 18, color: Colors.orange[400]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Les inscriptions sont fermées',
+                    style: TextStyle(
+                      color: Colors.orange[300],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         // Bouton S'inscrire
         SizedBox(
           width: double.infinity,
           height: 44,
           child: ElevatedButton.icon(
-            onPressed: _isLoading || (widget.event.isFull && !_isUserInscribed)
-                ? null
-                : _toggleRegistration,
+            onPressed: (!canRegister || _isLoading) ? null : _toggleRegistration,
             icon: _isLoading
                 ? const SizedBox(
                     width: 16,
@@ -306,13 +444,13 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   }
 
   // ========================================
-  // ÉTAT 2: INSCRIT MAIS PAS CONFIRMÉ
+  // ÉTAT 2: INSCRIT - AVANT LE DÉBUT
   // ========================================
   Widget _buildInscribedView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // En-tête compact avec badge "En attente"
+        // En-tête avec badge selon état
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,13 +487,17 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
               ),
             ),
             const SizedBox(width: 12),
-            // Badge "En attente" (orange)
+            // Badge "En attente" ou "À confirmer"
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange[900]?.withOpacity(0.3),
+                color: widget.event.isStarted
+                    ? Colors.purple[900]?.withOpacity(0.3)
+                    : Colors.orange[900]?.withOpacity(0.3),
                 border: Border.all(
-                  color: Colors.orange[400]!,
+                  color: widget.event.isStarted
+                      ? Colors.purple[400]!
+                      : Colors.orange[400]!,
                   width: 1.5,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -363,14 +505,22 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.schedule, size: 16, color: Colors.orange[400]),
+                  Icon(
+                    widget.event.isStarted ? Icons.check_circle : Icons.schedule,
+                    size: 16,
+                    color: widget.event.isStarted
+                        ? Colors.purple[400]
+                        : Colors.orange[400],
+                  ),
                   const SizedBox(width: 6),
                   Text(
-                    'En attente',
+                    widget.event.isStarted ? 'À confirmer' : 'En attente',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.orange[300],
+                      color: widget.event.isStarted
+                          ? Colors.purple[300]
+                          : Colors.orange[300],
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -382,92 +532,70 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
         const SizedBox(height: 16),
 
         // Lieu
-        GestureDetector(
-          onTap: widget.event.isDefinedLieu ? _openLocation : null,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.location_on_outlined,
-                size: 18,
-                color: widget.event.isDefinedLieu ? Colors.blue[400] : Colors.orange[300],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Lieu',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: widget.isDark ? Colors.grey[500] : Colors.grey[600],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.event.lieu,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: widget.event.isDefinedLieu
-                            ? (widget.isDark ? Colors.grey[100] : Colors.grey[900])
-                            : Colors.orange[300],
-                        fontWeight: widget.event.isDefinedLieu ? FontWeight.w500 : FontWeight.w400,
-                        fontStyle: widget.event.isDefinedLieu ? FontStyle.normal : FontStyle.italic,
-                        decoration: widget.event.isDefinedLieu ? TextDecoration.underline : null,
-                        decorationColor: Colors.blue[400],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (widget.event.isDefinedLieu)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '🔗 Cliquer pour ouvrir Maps',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.blue[400],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        _buildLocationRow(
+          context,
+          widget.event.lieu,
+          isDefined: widget.event.isDefinedLieu,
         ),
         const SizedBox(height: 16),
 
-        // Bouton Annuler l'inscription
-        SizedBox(
-          width: double.infinity,
-          height: 40,
-          child: OutlinedButton.icon(
-            onPressed: _isLoading ? null : _toggleRegistration,
-            icon: const Icon(Icons.close, size: 18),
-            label: const Text('Annuler l\'inscription'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red[600],
-              side: BorderSide(color: Colors.red[600]!),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        // Boutons selon l'état de l'événement
+        if (widget.event.isStarted)
+          // Mode confirmation
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _isLoading ? null : _confirmPresence,
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check_circle),
+              label: Text(
+                _isLoading ? 'En cours...' : 'Je suis présent ✅',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          )
+        else
+          // Mode avant le début - bouton d'invitation
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _isLoading ? null : _showInvitationDialog,
+              icon: const Icon(Icons.person_add),
+              label: const Text('📨 Inviter quelqu\'un'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
 
   // ========================================
-  // État 3: Confirmé
+  // ÉTAT 3: CONFIRMÉ
   // ========================================
   Widget _buildConfirmedView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // En-tête compact avec badge "Présent ✅"
+        // En-tête avec badge "Présent ✅"
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,56 +665,33 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
         const SizedBox(height: 16),
 
         // Lieu
-        GestureDetector(
-          onTap: widget.event.isDefinedLieu ? _openLocation : null,
+        _buildLocationRow(
+          context,
+          widget.event.lieu,
+          isDefined: widget.event.isDefinedLieu,
+        ),
+        const SizedBox(height: 16),
+
+        // Message de confirmation
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.green[900]?.withOpacity(0.2),
+            border: Border.all(color: Colors.green[400]!),
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.location_on_outlined,
-                size: 18,
-                color: widget.event.isDefinedLieu ? Colors.blue[400] : Colors.orange[300],
-              ),
-              const SizedBox(width: 12),
+              Icon(Icons.check_circle, size: 18, color: Colors.green[400]),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Lieu',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: widget.isDark ? Colors.grey[500] : Colors.grey[600],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.event.lieu,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: widget.event.isDefinedLieu
-                            ? (widget.isDark ? Colors.grey[100] : Colors.grey[900])
-                            : Colors.orange[300],
-                        fontWeight: widget.event.isDefinedLieu ? FontWeight.w500 : FontWeight.w400,
-                        fontStyle: widget.event.isDefinedLieu ? FontStyle.normal : FontStyle.italic,
-                        decoration: widget.event.isDefinedLieu ? TextDecoration.underline : null,
-                        decorationColor: Colors.blue[400],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (widget.event.isDefinedLieu)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          '🔗 Cliquer pour ouvrir Maps',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.blue[400],
-                          ),
-                        ),
-                      ),
-                  ],
+                child: Text(
+                  'Votre présence est confirmée',
+                  style: TextStyle(
+                    color: Colors.green[300],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
