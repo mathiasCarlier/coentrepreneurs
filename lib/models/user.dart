@@ -7,7 +7,7 @@ enum UserRole { admin, adherent, invite }
 // pour stocker une représentation texte simple en Firestore.
 class User {
   final String uid;
-  final String email;
+  String email;
   String nom;
   String prenom;
   String phone;

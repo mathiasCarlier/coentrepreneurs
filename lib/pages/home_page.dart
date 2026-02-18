@@ -16,6 +16,8 @@ import 'package:coentrepreneurs/pages/settings_page.dart';
 import 'package:coentrepreneurs/pages/messages_page.dart';
 import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
 import 'package:coentrepreneurs/pages/faq_page.dart'; 
+import 'package:coentrepreneurs/pages/directory_page_dynamic.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -305,16 +307,9 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bienvenue,',
+                'Bienvenue, ${user.prenom}',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: isDark ? Colors.grey[300] : Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${user.prenom} ${user.nom}',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -506,20 +501,20 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         if (user.role == UserRole.admin) const SizedBox(height: 12),
-        
+
         SizedBox(
           width: double.infinity,
           height: 48,
           child: ElevatedButton.icon(
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const DirectoryPage()),
+                MaterialPageRoute(builder: (context) => const DirectoryPageDynamic()),
               );
             },
             icon: const Icon(Icons.people_outline),
             label: const Text('Consulter les adhérents'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green[600],
+              backgroundColor: const Color.fromARGB(255, 0, 95, 5),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
