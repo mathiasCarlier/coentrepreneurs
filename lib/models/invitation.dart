@@ -1,4 +1,4 @@
-// models/invitation.dart - Modèle pour les invitations
+// models/invitation.dart - Modèle pour les invitations (CORRIGÉ)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -6,7 +6,7 @@ class Invitation {
   final String id;
   final String eventId;
   final String invitedByUserId; // Utilisateur qui invite
-  final String invitedUserEmail; // Email de la personne invitée
+  final String invitedUserEmail; // ✅ EMAIL - Requis pour lier à User
   final String invitedUserPrenom;
   final String invitedUserNom;
   final InvitationStatus status; // pending, accepted, declined
@@ -17,7 +17,7 @@ class Invitation {
     required this.id,
     required this.eventId,
     required this.invitedByUserId,
-    required this.invitedUserEmail,
+    required this.invitedUserEmail, // ✅ Maintenant requis
     required this.invitedUserPrenom,
     required this.invitedUserNom,
     this.status = InvitationStatus.pending,
@@ -37,7 +37,7 @@ class Invitation {
       id: map['id'] ?? '',
       eventId: map['eventId'] ?? '',
       invitedByUserId: map['invitedByUserId'] ?? '',
-      invitedUserEmail: map['invitedUserEmail'] ?? '',
+      invitedUserEmail: map['invitedUserEmail'] ?? '', // ✅ Récupérer email
       invitedUserPrenom: map['invitedUserPrenom'] ?? '',
       invitedUserNom: map['invitedUserNom'] ?? '',
       status: _statusFromString(map['status'] ?? 'pending'),
@@ -52,7 +52,7 @@ class Invitation {
       'id': id,
       'eventId': eventId,
       'invitedByUserId': invitedByUserId,
-      'invitedUserEmail': invitedUserEmail,
+      'invitedUserEmail': invitedUserEmail, // ✅ Sauvegarder email
       'invitedUserPrenom': invitedUserPrenom,
       'invitedUserNom': invitedUserNom,
       'status': status.toString().split('.').last,

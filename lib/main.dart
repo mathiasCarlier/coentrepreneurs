@@ -14,8 +14,6 @@ import 'package:coentrepreneurs/pages/login_page.dart';
 import 'package:coentrepreneurs/pages/signup_page.dart';
 import 'package:coentrepreneurs/pages/home_page.dart';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   print('INIT FIREBASE...');

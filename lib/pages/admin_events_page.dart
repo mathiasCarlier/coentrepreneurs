@@ -4,10 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart';
-import 'package:coentrepreneurs/models/invitation.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
-import 'package:coentrepreneurs/services/invitation_service.dart';
-import 'package:coentrepreneurs/widgets/invitation_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_guests_section.dart';
 
 class AdminEventsPage extends StatefulWidget {
@@ -633,6 +630,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                           EventGuestsSection(
                             eventId: widget.event.id,
                             isDark: isDark,
+                            registeredUserIds: widget.event.registeredUserIds,  // ← AJOUTÉ
                           ),
                           const SizedBox(height: 20),
                         ],

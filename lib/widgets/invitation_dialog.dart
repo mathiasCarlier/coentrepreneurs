@@ -1,76 +1,119 @@
-// widgets/invitation_dialog.dart
+// widgets/invitation_dialog.dart - VERSION CORRIGÉE AVEC EMAIL
 
 import 'package:flutter/material.dart';
 
-class InvitationDialog extends StatefulWidget {
+/// Affiche un dialogue pour inviter des personnes à un événement
+/// Retourne: List<Map<String, String>> avec email, prenom, nom
+Future<List<Map<String, String>>?> showInvitationDialog(
+  BuildContext context, {
+  required String eventId,
+  required String currentUserId,
+}) {
+  return showDialog<List<Map<String, String>>>(
+    context: context,
+    builder: (context) => _InvitationDialog(
+      eventId: eventId,
+      currentUserId: currentUserId,
+    ),
+  );
+}
+
+class _InvitationDialog extends StatefulWidget {
   final String eventId;
   final String currentUserId;
-  final VoidCallback onInvitationSent;
 
-  const InvitationDialog({
-    super.key,
+  const _InvitationDialog({
     required this.eventId,
     required this.currentUserId,
-    required this.onInvitationSent,
   });
 
   @override
-  State<InvitationDialog> createState() => _InvitationDialogState();
+  State<_InvitationDialog> createState() => _InvitationDialogState();
 }
 
-class _InvitationDialogState extends State<InvitationDialog> {
-  late TextEditingController _prenomController;
-  late TextEditingController _nomController;
-  bool _isLoading = false;
-  String? _error;
+class _InvitationDialogState extends State<_InvitationDialog> {
+  // ✅ Liste des invités à ajouter
+  final List<Map<String, TextEditingController>> _invitees = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _prenomController = TextEditingController();
-    _nomController = TextEditingController();
-
-    if (widget.eventId.isEmpty || widget.currentUserId.isEmpty) {
-      setState(() {
-        _error = 'Erreur: Les paramètres de l\'événement ne sont pas valides.';
-      });
-    }
-  }
+  // ✅ Validation
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _prenomController.dispose();
-    _nomController.dispose();
+    for (final invitee in _invitees) {
+      invitee['email']?.dispose();
+      invitee['prenom']?.dispose();
+      invitee['nom']?.dispose();
+    }
     super.dispose();
   }
 
-  void _submitInvitations() {
-    if (widget.eventId.isEmpty || widget.currentUserId.isEmpty) {
-      setState(() {
-        _error = 'ERREUR CRITIQUE: Les IDs sont vides. Veuillez réessayer.';
+  /// Ajoute un champ vide pour une nouvelle invitation
+  void _addInviteeField() {
+    setState(() {
+      _invitees.add({
+        'email': TextEditingController(),
+        'prenom': TextEditingController(),
+        'nom': TextEditingController(),
       });
+      _errorMessage = null;
+    });
+  }
+
+  /// Supprime un champ d'invitation
+  void _removeInviteeField(int index) {
+    setState(() {
+      _invitees[index]['email']?.dispose();
+      _invitees[index]['prenom']?.dispose();
+      _invitees[index]['nom']?.dispose();
+      _invitees.removeAt(index);
+      _errorMessage = null;
+    });
+  }
+
+  /// Valide et retourne les invitations
+  void _submitInvitations() {
+    // ✅ Valider qu'au moins une personne est invitée
+    if (_invitees.isEmpty) {
+      setState(() => _errorMessage = 'Ajoutez au moins une personne');
       return;
     }
 
-    setState(() => _error = null);
+    final List<Map<String, String>> invitations = [];
 
-    if (_prenomController.text.trim().isEmpty) {
-      setState(() => _error = 'Veuillez entrer un prénom');
-      return;
-    }
+    for (int i = 0; i < _invitees.length; i++) {
+      final email = _invitees[i]['email']?.text.trim() ?? '';
+      final prenom = _invitees[i]['prenom']?.text.trim() ?? '';
+      final nom = _invitees[i]['nom']?.text.trim() ?? '';
 
-    if (_nomController.text.trim().isEmpty) {
-      setState(() => _error = 'Veuillez entrer un nom');
-      return;
-    }
-
-    List<Map<String, String>> invitations = [
-      {
-        'prenom': _prenomController.text.trim(),
-        'nom': _nomController.text.trim(),
+      // ✅ Valider que TOUS les champs sont remplis
+      if (email.isEmpty) {
+        setState(() => _errorMessage = 'Email manquant pour la ligne ${i + 1}');
+        return;
       }
-    ];
+      if (prenom.isEmpty) {
+        setState(() => _errorMessage = 'Prénom manquant pour la ligne ${i + 1}');
+        return;
+      }
+      if (nom.isEmpty) {
+        setState(() => _errorMessage = 'Nom manquant pour la ligne ${i + 1}');
+        return;
+      }
 
+      // ✅ Valider format email (basique)
+      if (!email.contains('@')) {
+        setState(() => _errorMessage = 'Email invalide ligne ${i + 1}');
+        return;
+      }
+
+      invitations.add({
+        'email': email, // ✅ AJOUTÉ
+        'prenom': prenom,
+        'nom': nom,
+      });
+    }
+
+    print('✅ Invitations valides: $invitations');
     Navigator.of(context).pop(invitations);
   }
 
@@ -78,314 +121,183 @@ class _InvitationDialogState extends State<InvitationDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (widget.eventId.isEmpty || widget.currentUserId.isEmpty) {
-      return Dialog(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.grey[900] : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('❌ Erreur',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold, color: Colors.red)),
-                    IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close)),
-                  ],
+    return AlertDialog(
+      title: const Text('📧 Inviter des personnes'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ℹ️ Instruction
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Remplissez les informations pour inviter des personnes à cet événement.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue[900],
                 ),
               ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    border: Border.all(color: Colors.red, width: 2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Les IDs de l\'événement ou de l\'utilisateur sont vides.',
-                    style: TextStyle(color: Colors.red[700], fontSize: 12),
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
+            ),
+            const SizedBox(height: 16),
+
+            // 📋 Liste des invités
+            if (_invitees.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    child: const Text('Fermer'),
+                child: Center(
+                  child: Text(
+                    'Aucun invité pour le moment',
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return WillPopScope(
-      onWillPop: () async => true,
-      child: Dialog(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.grey[900] : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // EN-TÊTE
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '👤 Inviter quelqu\'un',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Entrez le prénom et le nom de l\'invité',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-
-              Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[300]),
-
-              // CONTENU
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Erreur
-                      if (_error != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            border: Border.all(color: Colors.red, width: 1.5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error, color: Colors.red, size: 20),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(_error!,
-                                    style: const TextStyle(color: Colors.red, fontSize: 12)),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, size: 18),
-                                onPressed: () => setState(() => _error = null),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // Prénom + Nom
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _prenomController,
-                              enabled: !_isLoading,
-                              decoration: InputDecoration(
-                                labelText: 'Prénom *',
-                                hintText: 'Jean',
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8)),
-                                filled: true,
-                                fillColor: isDark ? Colors.grey[850] : Colors.grey[50],
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                              ),
-                              textInputAction: TextInputAction.next,
-                              onChanged: (_) {
-                                if (_error != null) setState(() => _error = null);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: _nomController,
-                              enabled: !_isLoading,
-                              decoration: InputDecoration(
-                                labelText: 'Nom *',
-                                hintText: 'Dupont',
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8)),
-                                filled: true,
-                                fillColor: isDark ? Colors.grey[850] : Colors.grey[50],
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                              ),
-                              textInputAction: TextInputAction.done,
-                              onChanged: (_) {
-                                if (_error != null) setState(() => _error = null);
-                              },
-                              onSubmitted: (_) {
-                                if (!_isLoading) _submitInvitations();
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Info
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          border: Border.all(color: Colors.blue[400]!, width: 1.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
+              )
+            else
+              Column(
+                children: List.generate(_invitees.length, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Numéro de ligne
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.info, color: Colors.blue[400], size: 20),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'L\'invité apparaîtra dans la liste des participants de l\'événement.',
-                                style: TextStyle(color: Colors.blue[400], fontSize: 11),
+                            Text(
+                              'Personne ${index + 1}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () => _removeInviteeField(index),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              tooltip: 'Supprimer',
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+
+                        // ✅ Email (OBLIGATOIRE)
+                        TextField(
+                          controller: _invitees[index]['email'],
+                          decoration: InputDecoration(
+                            labelText: 'Email *',
+                            hintText: 'john@example.com',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(Icons.email_outlined),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 8),
+
+                        // ✅ Prénom (OBLIGATOIRE)
+                        TextField(
+                          controller: _invitees[index]['prenom'],
+                          decoration: InputDecoration(
+                            labelText: 'Prénom *',
+                            hintText: 'John',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(Icons.person_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // ✅ Nom (OBLIGATOIRE)
+                        TextField(
+                          controller: _invitees[index]['nom'],
+                          decoration: InputDecoration(
+                            labelText: 'Nom *',
+                            hintText: 'Doe',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(Icons.person_outlined),
+                          ),
+                        ),
+
+                        // Séparateur
+                        if (index < _invitees.length - 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Divider(
+                              color: Colors.grey[300],
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+
+            const SizedBox(height: 16),
+
+            // 📌 Message d'erreur
+            if (_errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[100],
+                  border: Border.all(color: Colors.red[400]!),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _errorMessage!,
+                  style: TextStyle(
+                    color: Colors.red[700],
+                    fontSize: 12,
                   ),
                 ),
-              ),
+              )
+            else
+              const SizedBox(height: 0),
 
-              Divider(height: 1, color: isDark ? Colors.grey[800] : Colors.grey[300]),
+            const SizedBox(height: 16),
 
-              // BOUTONS
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                      child: const Text('Annuler'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _submitInvitations,
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.person_add),
-                      label: Text(_isLoading ? 'Ajout...' : 'Inviter'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ],
+            // ➕ Bouton "Ajouter une personne"
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _addInviteeField,
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter une personne'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: _submitInvitations,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[600],
           ),
+          child: const Text('✅ Envoyer les invitations'),
         ),
-      ),
+      ],
     );
-  }
-}
-
-// Fonction helper
-Future<List<Map<String, String>>?> showInvitationDialog(
-  BuildContext context, {
-  required String eventId,
-  required String currentUserId,
-}) async {
-  if (eventId.isEmpty || currentUserId.isEmpty) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('❌ Erreur: Les données de l\'événement ne sont pas valides'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 5),
-        ),
-      );
-    }
-    return null;
-  }
-
-  try {
-    return await showDialog<List<Map<String, String>>>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => InvitationDialog(
-        eventId: eventId,
-        currentUserId: currentUserId,
-        onInvitationSent: () {},
-      ),
-    );
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Erreur: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-    return null;
   }
 }

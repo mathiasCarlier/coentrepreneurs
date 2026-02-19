@@ -11,7 +11,6 @@ import 'package:coentrepreneurs/models/user.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_card_avec_inscription.dart';
-import 'package:coentrepreneurs/pages/directory_page.dart';
 import 'package:coentrepreneurs/pages/settings_page.dart'; 
 import 'package:coentrepreneurs/pages/messages_page.dart';
 import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
@@ -316,27 +315,17 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.green[900]?.withOpacity(0.3),
-            border: Border.all(color: Colors.green[400]!, width: 1.5),
-            borderRadius: BorderRadius.circular(24),
+            color: isDark ? Colors.purple[700] : Colors.purple[100],
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle, size: 16, color: Colors.green[400]),
-              const SizedBox(width: 6),
-              Text(
-                'CGU ok',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green[300],
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
+          child: Text(
+            _getRoleLabel(user.role),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: isDark ? Colors.white : Colors.purple[800],
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -645,44 +634,6 @@ class _ContactButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isDark;
-
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.grey[400] : Colors.grey[700],
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.grey[100] : Colors.grey[900],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

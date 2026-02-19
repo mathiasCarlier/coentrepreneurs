@@ -1,4 +1,4 @@
-// services/invitation_service.dart
+// services/invitation_service.dart - CORRIGÉ (sans Cloud Function, avec email)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/invitation.dart';
@@ -7,15 +7,15 @@ class InvitationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ========================================
-  // 📝 CRÉER UNE INVITATION
+  // 📝 CRÉER UNE INVITATION SIMPLE
   // ========================================
 
   Future<void> createInvitation({
     required String eventId,
     required String invitedByUserId,
+    required String invitedUserEmail,
     required String invitedUserPrenom,
     required String invitedUserNom,
-    String invitedUserEmail = '',
   }) async {
     try {
       final docRef = _firestore.collection('invitations').doc();
@@ -23,7 +23,7 @@ class InvitationService {
         id: docRef.id,
         eventId: eventId,
         invitedByUserId: invitedByUserId,
-        invitedUserEmail: invitedUserEmail,
+        invitedUserEmail: invitedUserEmail, // ✅ EMAIL INCLUS
         invitedUserPrenom: invitedUserPrenom,
         invitedUserNom: invitedUserNom,
         status: InvitationStatus.pending,
@@ -34,6 +34,99 @@ class InvitationService {
       throw Exception('Erreur lors de la création de l\'invitation: $e');
     }
   }
+
+  // ========================================
+  // ✨ CRÉER UTILISATEURS + INVITATIONS (CORRIGÉ)
+  // ========================================
+
+  /// Crée les utilisateurs invités et les invitations
+  /// ✅ AVEC EMAIL - Juste sauvegardé, pas d'envoi de mail
+  Future<void> createInvitationsWithUsers({
+    required String eventId,
+    required String invitedByUserId,
+    required List<Map<String, String>> invitations,
+  }) async {
+    try {
+      print('🚀 Création de ${invitations.length} invitation(s) avec utilisateurs...');
+      
+      final batch = _firestore.batch();
+
+      for (final inv in invitations) {
+        final email = inv['email']?.toLowerCase().trim() ?? '';
+        final prenom = inv['prenom']?.trim() ?? '';
+        final nom = inv['nom']?.trim() ?? '';
+
+        // ✅ EMAIL EST REQUIS
+        if (email.isEmpty || prenom.isEmpty || nom.isEmpty) {
+          throw Exception('Données invalides: email, prenom et nom sont obligatoires');
+        }
+
+        print('\n📝 Traitement: $prenom $nom ($email)');
+
+        // 1️⃣ Vérifier si l'utilisateur existe déjà
+        print('   1️⃣ Vérification utilisateur...');
+        final existingUsers = await _firestore
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .get();
+
+        String userId;
+
+        if (existingUsers.docs.isNotEmpty) {
+          // Utilisateur existe déjà
+          userId = existingUsers.docs.first.id;
+          print('   ✅ Utilisateur existe: $userId');
+        } else {
+          // Créer un nouvel utilisateur avec rôle "invite"
+          print('   📝 Création nouvel utilisateur...');
+          final newUserRef = _firestore.collection('users').doc();
+          userId = newUserRef.id;
+
+          final userData = {
+            'email': email, // ✅ EMAIL SAUVEGARDÉ
+            'prenom': prenom.trim(),
+            'nom': nom.trim(),
+            'role': 'invite', // ✅ Rôle invite
+            'telephone': '',
+            'createdAt': FieldValue.serverTimestamp(),
+            'isActive': true,
+          };
+
+          batch.set(newUserRef, userData);
+          print('   ✅ Utilisateur créé: $userId avec email: $email');
+        }
+
+        // 2️⃣ Créer l'invitation liée à cet utilisateur
+        print('   2️⃣ Création invitation...');
+        final invitationRef = _firestore.collection('invitations').doc();
+
+        final invitation = Invitation(
+          id: invitationRef.id,
+          eventId: eventId,
+          invitedByUserId: invitedByUserId,
+          invitedUserEmail: email, // ✅ EMAIL DANS INVITATION
+          invitedUserPrenom: prenom,
+          invitedUserNom: nom,
+          status: InvitationStatus.pending,
+          createdAt: DateTime.now(),
+        );
+
+        batch.set(invitationRef, invitation.toMap());
+        print('   ✅ Invitation créée: ${invitationRef.id}');
+      }
+
+      print('\n⏳ Validation du batch...');
+      await batch.commit();
+      print('✅ Batch commit réussi - ${invitations.length} invitation(s) créée(s)\n');
+    } catch (e) {
+      print('❌ Erreur: $e');
+      throw Exception('Erreur lors de la création des invitations: $e');
+    }
+  }
+
+  // ========================================
+  // 🔄 CRÉER INVITATIONS (ancien - compatibilité)
+  // ========================================
 
   Future<void> createInvitations({
     required String eventId,
@@ -48,7 +141,7 @@ class InvitationService {
           id: docRef.id,
           eventId: eventId,
           invitedByUserId: invitedByUserId,
-          invitedUserEmail: inv['email'] ?? '',
+          invitedUserEmail: inv['email'] ?? '', // ✅ EMAIL INCLUS
           invitedUserPrenom: inv['prenom'] ?? '',
           invitedUserNom: inv['nom'] ?? '',
           status: InvitationStatus.pending,

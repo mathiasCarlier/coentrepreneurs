@@ -252,13 +252,17 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
+Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     print('🚀 Envoi de ${invitations.length} invitation(s)...');
     try {
-      await _invitationService.createInvitations(
+      // ✅ Utiliser createInvitationsWithUsers qui:
+      //    • Crée l'utilisateur avec email et rôle "invite"
+      //    • Crée l'invitation liée
+      //    • NE FAIT PAS d'envoi de mail
+      await _invitationService.createInvitationsWithUsers(
         eventId: widget.event.id,
         invitedByUserId: widget.currentUser!.uid,
-        invitations: invitations,
+        invitations: invitations, // ✅ Contient: email, prenom, nom
       );
 
       if (mounted) {
@@ -270,7 +274,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             backgroundColor: Colors.green,
           ),
         );
-        print('✅ Invitations envoyées avec succès!');
+        print('✅ Invitations créées avec succès (emails sauvegardés)!');
       }
     } catch (e) {
       print('❌ Erreur lors de l\'envoi: $e');
@@ -284,6 +288,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -558,7 +563,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
                 _isLoading ? 'En cours...' : 'Je suis présent ✅',
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
+                backgroundColor: Colors.orange[600],
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
