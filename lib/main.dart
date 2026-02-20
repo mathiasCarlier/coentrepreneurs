@@ -16,16 +16,16 @@ import 'package:coentrepreneurs/pages/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('INIT FIREBASE...');
+  debugPrint('INIT FIREBASE...');
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('FIREBASE OK');
+    debugPrint('FIREBASE OK');
   
     
   } catch (e) {
-    print('FIREBASE ERROR: $e');
+    debugPrint('FIREBASE ERROR: $e');
   }
   runApp(const App());
 }

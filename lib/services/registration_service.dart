@@ -1,6 +1,7 @@
 // services/registration_service.dart - CORRIGÉ
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 
@@ -211,7 +212,7 @@ class RegistrationService {
             ));
           }
         } catch (e) {
-          print('Erreur lors de la récupération de l\'utilisateur $userId: $e');
+          debugPrint('Erreur lors de la récupération de l\'utilisateur $userId: $e');
         }
       }
 
@@ -246,7 +247,7 @@ class RegistrationService {
             ));
           }
         } catch (e) {
-          print('Erreur lors de la récupération de l\'utilisateur $userId: $e');
+          debugPrint('Erreur lors de la récupération de l\'utilisateur $userId: $e');
         }
       }
 

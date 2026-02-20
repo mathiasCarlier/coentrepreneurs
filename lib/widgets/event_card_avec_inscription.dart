@@ -34,7 +34,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   final RegistrationService _registrationService = RegistrationService();
   final EventService _eventService = EventService();
   final InvitationService _invitationService = InvitationService();
-  late bool _isUserRegistered;
   bool _isLoading = false;
 
   @override
@@ -47,9 +46,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     _elevation = Tween<double>(begin: 2, end: 12).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
-    _isUserRegistered = widget.currentUser != null 
-        ? widget.event.isUserRegistered(widget.currentUser!.uid)
-        : false;
+    // Use computed getters to determine registration state; no stored field needed.
   }
 
   @override
@@ -102,7 +99,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           widget.currentUser!.uid,
         );
         if (mounted) {
-          setState(() => _isUserRegistered = false);
+          setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✅ Vous avez annulé votre inscription'),
@@ -143,7 +140,7 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           widget.currentUser!.uid,
         );
         if (mounted) {
-          setState(() => _isUserRegistered = true);
+          setState(() {});
           
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -153,10 +150,10 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           );
 
           // ✨ AFFICHER LE DIALOGUE D'INVITATION
-          print('⏳ Attente de 500ms avant d\'afficher le dialogue d\'invitation...');
+          debugPrint('⏳ Attente de 500ms avant d\'afficher le dialogue d\'invitation...');
           await Future.delayed(const Duration(milliseconds: 500));
           if (mounted) {
-            print('🔔 Affichage du dialogue d\'invitation');
+            debugPrint('🔔 Affichage du dialogue d\'invitation');
             _showInvitationDialog();
           }
         }
@@ -232,28 +229,27 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
 
   Future<void> _showInvitationDialog() async {
     if (widget.currentUser == null) {
-      print('❌ Erreur: Pas d\'utilisateur connecté');
+      debugPrint('❌ Erreur: Pas d\'utilisateur connecté');
       return;
     }
-
-    print('📨 Ouverture du dialogue d\'invitation...');
+    debugPrint('📨 Ouverture du dialogue d\'invitation...');
     final invitations = await showInvitationDialog(
       context,
       eventId: widget.event.id,
       currentUserId: widget.currentUser!.uid,
     );
 
-    print('💬 Invitations retournées: $invitations');
+    debugPrint('💬 Invitations retournées: $invitations');
     if (invitations != null && invitations.isNotEmpty && mounted) {
-      print('✅ Envoi des invitations...');
+      debugPrint('✅ Envoi des invitations...');
       _sendInvitations(invitations);
     } else {
-      print('⚠️ Aucune invitation à envoyer ou dialogue fermé');
+      debugPrint('⚠️ Aucune invitation à envoyer ou dialogue fermé');
     }
   }
 
 Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
-    print('🚀 Envoi de ${invitations.length} invitation(s)...');
+    debugPrint('🚀 Envoi de ${invitations.length} invitation(s)...');
     try {
       // ✅ Utiliser createInvitationsWithUsers qui:
       //    • Crée l'utilisateur avec email et rôle "invite"
@@ -274,10 +270,10 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             backgroundColor: Colors.green,
           ),
         );
-        print('✅ Invitations créées avec succès (emails sauvegardés)!');
+        debugPrint('✅ Invitations créées avec succès (emails sauvegardés)!');
       }
     } catch (e) {
-      print('❌ Erreur lors de l\'envoi: $e');
+      debugPrint('❌ Erreur lors de l\'envoi: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -827,9 +823,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     }
     if (oldWidget.currentUser?.uid != widget.currentUser?.uid ||
         oldWidget.event.id != widget.event.id) {
-      _isUserRegistered = widget.currentUser != null 
-          ? widget.event.isUserRegistered(widget.currentUser!.uid)
-          : false;
+      setState(() {});
     }
   }
 }

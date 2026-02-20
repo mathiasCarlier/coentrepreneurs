@@ -28,7 +28,7 @@ class LocationService {
         }
       }
     } catch (e) {
-      print('❌ Erreur lors de l\'ouverture de Google Maps: $e');
+      debugPrint('❌ Erreur lors de l\'ouverture de Google Maps: $e');
       rethrow;
     }
   }
@@ -53,7 +53,7 @@ class LocationService {
         throw 'Apple Maps non disponible sur web';
       }
     } catch (e) {
-      print('❌ Erreur lors de l\'ouverture d\'Apple Maps: $e');
+      debugPrint('❌ Erreur lors de l\'ouverture d\'Apple Maps: $e');
       rethrow;
     }
   }
@@ -69,14 +69,14 @@ class LocationService {
           await openAppleMaps(address);
           return;
         } catch (e) {
-          print('⚠️ Apple Maps non disponible, essai Google Maps...');
+          debugPrint('⚠️ Apple Maps non disponible, essai Google Maps...');
         }
       }
       
       // Fallback ou défaut: Google Maps
       await openGoogleMaps(address);
     } catch (e) {
-      print('❌ Erreur lors de l\'ouverture de Maps: $e');
+      debugPrint('❌ Erreur lors de l\'ouverture de Maps: $e');
       rethrow;
     }
   }
@@ -94,7 +94,7 @@ class LocationService {
           await launchUrl(Uri.parse(appleMapsUrl));
           return;
         } catch (e) {
-          print('⚠️ Apple Maps non disponible, essai Google Maps...');
+          debugPrint('⚠️ Apple Maps non disponible, essai Google Maps...');
         }
       }
       
@@ -102,7 +102,7 @@ class LocationService {
       final googleMapsUrl = 'https://www.google.com/maps/search/$encodedAddress';
       await launchUrl(Uri.parse(googleMapsUrl));
     } catch (e) {
-      print('❌ Erreur lors de l\'ouverture de Maps: $e');
+      debugPrint('❌ Erreur lors de l\'ouverture de Maps: $e');
       rethrow;
     }
   }

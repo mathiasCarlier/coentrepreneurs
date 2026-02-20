@@ -68,7 +68,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         });
       }
     } catch (e) {
-      print('Erreur lors du chargement du feedback existant: $e');
+      debugPrint('Erreur lors du chargement du feedback existant: $e');
     }
   }
 
@@ -118,7 +118,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       }
     } catch (e) {
       setState(() => _error = 'Erreur: $e');
-      print('Erreur lors de la soumission du feedback: $e');
+      debugPrint('Erreur lors de la soumission du feedback: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

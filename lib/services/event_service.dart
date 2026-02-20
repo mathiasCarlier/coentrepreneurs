@@ -1,6 +1,7 @@
 // services/event_service.dart - VERSION FINALE COMPLÈTE
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/event.dart';
 
 class EventService {
@@ -58,7 +59,7 @@ class EventService {
                 try {
                   return Event.fromMap(doc.data());
                 } catch (e) {
-                  print('Erreur parsing événement ${doc.id}: $e');
+                  debugPrint('Erreur parsing événement ${doc.id}: $e');
                   rethrow;
                 }
               })
@@ -410,11 +411,11 @@ class EventService {
       
       // Si des événements existent déjà, ne pas initialiser
       if ((snapshot.count ?? 0) > 0) {
-        print('✅ Des événements existent déjà. Initialisation ignorée.');
+        debugPrint('✅ Des événements existent déjà. Initialisation ignorée.');
         return;
       }
 
-      print('📝 Initialisation des événements par défaut...');
+      debugPrint('📝 Initialisation des événements par défaut...');
 
       // Créer des événements d'exemple
       final now = DateTime.now();
@@ -462,9 +463,9 @@ class EventService {
         await createEvent(event);
       }
 
-      print('✅ ${events.length} événements par défaut créés avec succès!');
+      debugPrint('✅ ${events.length} événements par défaut créés avec succès!');
     } catch (e) {
-      print('⚠️ Erreur lors de l\'initialisation des événements: $e');
+      debugPrint('⚠️ Erreur lors de l\'initialisation des événements: $e');
       // Ne pas lever d'exception, juste un warning
     }
   }
@@ -476,7 +477,7 @@ class EventService {
       for (final doc in snapshot.docs) {
         await doc.reference.delete();
       }
-      print('✅ Tous les événements ont été supprimés.');
+      debugPrint('✅ Tous les événements ont été supprimés.');
     } catch (e) {
       throw Exception('Erreur lors de la suppression des événements: $e');
     }

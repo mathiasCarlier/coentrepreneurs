@@ -359,7 +359,7 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                                       try {
                                         await _cguService.acceptCGU(widget.userId!);
                                       } catch (e) {
-                                        print('Erreur lors de la sauvegarde des CGU: $e');
+                                        debugPrint('Erreur lors de la sauvegarde des CGU: $e');
                                       }
                                     }
                                     if (mounted) {

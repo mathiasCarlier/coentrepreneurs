@@ -113,7 +113,7 @@ class _InvitationDialogState extends State<_InvitationDialog> {
       });
     }
 
-    print('✅ Invitations valides: $invitations');
+    debugPrint('✅ Invitations valides: $invitations');
     Navigator.of(context).pop(invitations);
   }
 

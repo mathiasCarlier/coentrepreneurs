@@ -1,5 +1,6 @@
 // services/cgu_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/cgu_acceptance.dart';
 
 class CGUService {
@@ -29,7 +30,7 @@ class CGUService {
       return acceptance.hasAccepted && 
              acceptance.cguVersion == currentCGUVersion;
     } catch (e) {
-      print('Erreur lors de la vérification des CGU: $e');
+      debugPrint('Erreur lors de la vérification des CGU: $e');
       return false;
     }
   }
@@ -49,7 +50,7 @@ class CGUService {
           .doc(userId)
           .set(acceptance.toMap());
     } catch (e) {
-      print('Erreur lors de l\'enregistrement de l\'acceptation des CGU: $e');
+      debugPrint('Erreur lors de l\'enregistrement de l\'acceptation des CGU: $e');
       rethrow;
     }
   }

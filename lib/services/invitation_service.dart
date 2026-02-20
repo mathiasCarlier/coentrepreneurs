@@ -2,6 +2,7 @@
 // Ajoute automatiquement l'invité à event.registeredUserIds
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/invitation.dart';
 
 class InvitationService {
@@ -48,7 +49,7 @@ class InvitationService {
     required List<Map<String, String>> invitations,
   }) async {
     try {
-      print('🚀 Création de ${invitations.length} invitation(s) avec utilisateurs...');
+      debugPrint('🚀 Création de ${invitations.length} invitation(s) avec utilisateurs...');
       
       final batch = _firestore.batch();
       final List<String> newUserIds = []; // ✅ AJOUTÉ: Tracker les nouveaux users
@@ -62,10 +63,10 @@ class InvitationService {
           throw Exception('Données invalides: email, prenom et nom sont obligatoires');
         }
 
-        print('\n📝 Traitement: $prenom $nom ($email)');
+        debugPrint('\n📝 Traitement: $prenom $nom ($email)');
 
         // 1️⃣ Vérifier si l'utilisateur existe déjà
-        print('   1️⃣ Vérification utilisateur...');
+        debugPrint('   1️⃣ Vérification utilisateur...');
         final existingUsers = await _firestore
             .collection('users')
             .where('email', isEqualTo: email)
@@ -76,10 +77,10 @@ class InvitationService {
         if (existingUsers.docs.isNotEmpty) {
           // Utilisateur existe déjà
           userId = existingUsers.docs.first.id;
-          print('   ✅ Utilisateur existe: $userId');
+          debugPrint('   ✅ Utilisateur existe: $userId');
         } else {
           // Créer un nouvel utilisateur avec rôle "invite"
-          print('   📝 Création nouvel utilisateur...');
+          debugPrint('   📝 Création nouvel utilisateur...');
           final newUserRef = _firestore.collection('users').doc();
           userId = newUserRef.id;
 
@@ -95,11 +96,11 @@ class InvitationService {
 
           batch.set(newUserRef, userData);
           newUserIds.add(userId); // ✅ AJOUTÉ: Tracker le nouvel user
-          print('   ✅ Utilisateur créé: $userId avec email: $email');
+          debugPrint('   ✅ Utilisateur créé: $userId avec email: $email');
         }
 
         // 2️⃣ Créer l'invitation liée à cet utilisateur
-        print('   2️⃣ Création invitation...');
+        debugPrint('   2️⃣ Création invitation...');
         final invitationRef = _firestore.collection('invitations').doc();
 
         final invitation = Invitation(
@@ -114,28 +115,28 @@ class InvitationService {
         );
 
         batch.set(invitationRef, invitation.toMap());
-        print('   ✅ Invitation créée: ${invitationRef.id}');
+        debugPrint('   ✅ Invitation créée: ${invitationRef.id}');
       }
 
-      print('\n⏳ Validation du batch...');
+      debugPrint('\n⏳ Validation du batch...');
       await batch.commit();
-      print('✅ Batch commit réussi - ${invitations.length} invitation(s) créée(s)');
+      debugPrint('✅ Batch commit réussi - ${invitations.length} invitation(s) créée(s)');
 
       // ✅ AJOUTÉ: Ajouter les nouveaux utilisateurs à event.registeredUserIds
       if (newUserIds.isNotEmpty) {
-        print('\n📌 Ajout des nouveaux utilisateurs à event.registeredUserIds...');
+        debugPrint('\n📌 Ajout des nouveaux utilisateurs à event.registeredUserIds...');
         for (final userId in newUserIds) {
-          print('   ➕ Ajout de $userId à registeredUserIds');
+          debugPrint('   ➕ Ajout de $userId à registeredUserIds');
           await _firestore.collection('events').doc(eventId).update({
             'registeredUserIds': FieldValue.arrayUnion([userId]),
           });
         }
-        print('✅ Utilisateurs ajoutés à l\'événement');
+        debugPrint('✅ Utilisateurs ajoutés à l\'événement');
       }
 
-      print('\n✅ Invitations créées avec succès!\n');
+      debugPrint('\n✅ Invitations créées avec succès!\n');
     } catch (e) {
-      print('❌ Erreur: $e');
+      debugPrint('❌ Erreur: $e');
       throw Exception('Erreur lors de la création des invitations: $e');
     }
   }

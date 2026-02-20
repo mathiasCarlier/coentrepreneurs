@@ -1,6 +1,7 @@
 // services/feedback_service.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/feedback.dart';
 
 class FeedbackService {
@@ -36,7 +37,7 @@ class FeedbackService {
         updatedAt: DateTime.now(),
       );
       await docRef.set(feedback.toMap());
-      print('✅ Feedback créé: ${docRef.id}');
+      debugPrint('✅ Feedback créé: ${docRef.id}');
     } catch (e) {
       throw Exception('Erreur lors de la création du feedback: $e');
     }
@@ -55,7 +56,7 @@ class FeedbackService {
         'whatYouLearned': whatYouLearned,
         'updatedAt': DateTime.now(),
       });
-      print('✅ Feedback mis à jour: $feedbackId');
+      debugPrint('✅ Feedback mis à jour: $feedbackId');
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du feedback: $e');
     }
@@ -158,7 +159,7 @@ class FeedbackService {
   Future<void> deleteFeedback(String feedbackId) async {
     try {
       await _firestore.collection('feedbacks').doc(feedbackId).delete();
-      print('✅ Feedback supprimé: $feedbackId');
+      debugPrint('✅ Feedback supprimé: $feedbackId');
     } catch (e) {
       throw Exception('Erreur lors de la suppression du feedback: $e');
     }
@@ -176,7 +177,7 @@ class FeedbackService {
         batch.delete(doc.reference);
       }
       await batch.commit();
-      print('✅ Feedbacks de l\'événement supprimés');
+      debugPrint('✅ Feedbacks de l\'événement supprimés');
     } catch (e) {
       throw Exception('Erreur lors de la suppression des feedbacks: $e');
     }

@@ -53,7 +53,7 @@ class AuthService {
           role: user_model.UserRole.invite,
         );
       } catch (e) {
-        print('Erreur lors de la récupération des données utilisateur: $e');
+        debugPrint('Erreur lors de la récupération des données utilisateur: $e');
         // Retourner un utilisateur avec les données de base même en cas d'erreur
           return user_model.User(
           uid: firebaseUser.uid,
@@ -85,7 +85,7 @@ class AuthService {
         );
       }
     } catch (e) {
-      print('Erreur lors de la récupération de l\'utilisateur actuel: $e');
+      debugPrint('Erreur lors de la récupération de l\'utilisateur actuel: $e');
     }
     return null;
   }
@@ -118,7 +118,7 @@ class AuthService {
           );
         }
       } catch (e) {
-        print('Impossible de récupérer les données Firestore: $e');
+        debugPrint('Impossible de récupérer les données Firestore: $e');
         // Retourner un utilisateur minimal si Firestore est indisponible
       }
 
@@ -211,7 +211,7 @@ class AuthService {
       final doc = await _firestore.collection('users').doc(uid).get();
       return doc.data();
     } catch (e) {
-      print('Erreur lors de la récupération des données: $e');
+      debugPrint('Erreur lors de la récupération des données: $e');
       return null;
     }
   }

@@ -7,7 +7,6 @@ import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/widgets/event_guests_section.dart';
-import 'package:coentrepreneurs/widgets/feedback_dialog.dart';
 
 class AdminEventsPage extends StatefulWidget {
   const AdminEventsPage({super.key});
@@ -872,13 +871,13 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
             ));
           }
         } catch (e) {
-          print('Erreur lors de la récupération de l\'utilisateur $userId: $e');
+          debugPrint('Erreur lors de la récupération de l\'utilisateur $userId: $e');
         }
       }
 
       return users;
     } catch (e) {
-      print('Erreur lors de la récupération des participants: $e');
+      debugPrint('Erreur lors de la récupération des participants: $e');
       return [];
     }
   }

@@ -717,7 +717,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         );
       }
     } catch (e) {
-      print('❌ Error: $e');
+      debugPrint('❌ Error: $e');
       setState(() => _error = 'Erreur: $e');
 
       if (mounted) {

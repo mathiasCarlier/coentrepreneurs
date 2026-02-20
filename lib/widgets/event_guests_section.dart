@@ -28,10 +28,10 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
   /// ✅ CORRIGÉ: Affiche les adhérents, pas les invités
   Future<List<Map<String, dynamic>>> _fetchRegisteredUsers() async {
     try {
-      print('🔍 Récupération des adhérents inscrits: ${widget.registeredUserIds.length}');
+      debugPrint('🔍 Récupération des adhérents inscrits: ${widget.registeredUserIds.length}');
 
-      if (widget.registeredUserIds.isEmpty) {
-        print('⚠️ Aucun adhérent inscrit');
+        if (widget.registeredUserIds.isEmpty) {
+        debugPrint('⚠️ Aucun adhérent inscrit');
         return [];
       }
 
@@ -43,7 +43,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
 
           if (userDoc.exists) {
             final userData = userDoc.data() ?? {};
-            print('✅ Adhérent trouvé: $userId');
+            debugPrint('✅ Adhérent trouvé: $userId');
 
             result.add({
               'userId': userId,
@@ -57,17 +57,17 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
               ),
             });
           } else {
-            print('⚠️ Adhérent $userId n\'existe pas');
+            debugPrint('⚠️ Adhérent $userId n\'existe pas');
           }
         } catch (e) {
-          print('❌ Erreur lors de la récupération de l\'adhérent $userId: $e');
+          debugPrint('❌ Erreur lors de la récupération de l\'adhérent $userId: $e');
         }
       }
 
-      print('📊 Résultat final: ${result.length} adhérents');
+      debugPrint('📊 Résultat final: ${result.length} adhérents');
       return result;
     } catch (e) {
-      print('❌ Erreur globale: $e');
+      debugPrint('❌ Erreur globale: $e');
       return [];
     }
   }
@@ -108,14 +108,14 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
 
     if (confirm == true && mounted) {
       try {
-        print('🗑️ Retrait de l\'adhérent: $userId');
+      debugPrint('🗑️ Retrait de l\'adhérent: $userId');
 
         // ✅ Retirer l'adhérent de la liste registeredUserIds
         await _firestore.collection('events').doc(widget.eventId).update({
           'registeredUserIds': FieldValue.arrayRemove([userId]),
         });
 
-        print('✅ Adhérent retiré');
+        debugPrint('✅ Adhérent retiré');
 
         if (mounted) {
           setState(() {});
@@ -127,7 +127,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
           );
         }
       } catch (e) {
-        print('❌ Erreur retrait: $e');
+        debugPrint('❌ Erreur retrait: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
