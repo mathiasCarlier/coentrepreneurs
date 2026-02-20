@@ -22,7 +22,15 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _prenom;
   late TextEditingController _nom;
   late TextEditingController _phoneController;
+  
+  // Contrôleurs pour les informations professionnelles
+  late TextEditingController _companyNameController;
+  late TextEditingController _skillsController;
+  late TextEditingController _professionalAddressController;
+  late TextEditingController _websiteController;
+  
   bool _isEditing = false;
+  bool _isEditingPro = false;
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
   File? _selectedPhoto;
@@ -37,6 +45,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _prenom = TextEditingController(text: _user.prenom);
     _nom = TextEditingController(text: _user.nom);
     _phoneController = TextEditingController(text: _user.phone);
+    
+    _companyNameController = TextEditingController(text: _user.companyName ?? '');
+    _skillsController = TextEditingController(text: _user.skills ?? '');
+    _professionalAddressController = TextEditingController(text: _user.professionalAddress ?? '');
+    _websiteController = TextEditingController(text: _user.website ?? '');
   }
 
   @override
@@ -44,6 +57,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _prenom.dispose();
     _nom.dispose();
     _phoneController.dispose();
+    _companyNameController.dispose();
+    _skillsController.dispose();
+    _professionalAddressController.dispose();
+    _websiteController.dispose();
     super.dispose();
   }
 
@@ -176,6 +193,88 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _saveProfessionalInfo() async {
+    setState(() => _isSaving = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .update({
+            'companyName': _companyNameController.text.trim(),
+            'skills': _skillsController.text.trim(),
+            'professionalAddress': _professionalAddressController.text.trim(),
+            'website': _websiteController.text.trim(),
+            'shareProInfo': _user.shareProInfo ?? false,
+          });
+
+      // Mettre à jour l'objet _user
+      _user.companyName = _companyNameController.text.trim();
+      _user.skills = _skillsController.text.trim();
+      _user.professionalAddress = _professionalAddressController.text.trim();
+      _user.website = _websiteController.text.trim();
+
+      setState(() {
+        _isEditingPro = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Informations professionnelles mises à jour'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _toggleShareProInfo() async {
+    final newValue = !(_user.shareProInfo ?? false);
+    
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .update({'shareProInfo': newValue});
+
+      setState(() {
+        _user.shareProInfo = newValue;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newValue
+                ? '✅ Informations professionnelles partagées'
+                : '✅ Informations professionnelles masquées'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _showCGUDialog() async {
     // Vérifier si l'utilisateur a déjà accepté les CGU
     final userAcceptedCGU = await _cguService.hasUserAcceptedCGU(_user.uid);
@@ -228,6 +327,13 @@ class _SettingsPageState extends State<SettingsPage> {
               // Section Informations Personnelles (avec édition)
               _buildUserInfoSection(context, _user, isDark),
               const SizedBox(height: 32),
+
+              // Section Informations Professionnelles (nouvelles)
+              if (_user.role == user_model.UserRole.adherent)
+                ...[
+                  _buildProfessionalInfoSection(context, _user, isDark),
+                  const SizedBox(height: 32),
+                ],
 
               // Section Sécurité
               _buildSecuritySection(context, isDark),
@@ -580,6 +686,255 @@ class _SettingsPageState extends State<SettingsPage> {
                   value: _getRoleLabel(user.role),
                   isDark: isDark,
                 ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfessionalInfoSection(
+    BuildContext context,
+    user_model.User user,
+    bool isDark,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
+        border: Border.all(
+          color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Informations professionnelles',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              if (!_isEditingPro)
+                ElevatedButton.icon(
+                  onPressed: () => setState(() => _isEditingPro = true),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text(
+                    'Modifier',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange[600],
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          // Toggle pour partager les infos pro
+          if (!_isEditingPro)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Partager vos informations',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Visibles dans l\'annuaire',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _user.shareProInfo ?? false,
+                    onChanged: (_) => _toggleShareProInfo(),
+                  ),
+                ],
+              ),
+            ),
+
+          if (_isEditingPro)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Nom de l'entreprise
+                TextField(
+                  controller: _companyNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Entreprise / Organisation',
+                    prefixIcon: const Icon(Icons.business),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Compétences
+                TextField(
+                  controller: _skillsController,
+                  decoration: InputDecoration(
+                    labelText: 'Compétences',
+                    prefixIcon: const Icon(Icons.lightbulb),
+                    hintText: 'ex: Gestion, Marketing, Développement...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+
+                // Adresse professionnelle
+                TextField(
+                  controller: _professionalAddressController,
+                  decoration: InputDecoration(
+                    labelText: 'Adresse professionnelle',
+                    prefixIcon: const Icon(Icons.location_on),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Site web
+                TextField(
+                  controller: _websiteController,
+                  decoration: InputDecoration(
+                    labelText: 'Site web / Portfolio',
+                    prefixIcon: const Icon(Icons.language),
+                    hintText: 'https://...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Boutons d'action
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _isSaving
+                          ? null
+                          : () {
+                              // Réinitialiser les champs
+                              _companyNameController.text = user.companyName ?? '';
+                              _skillsController.text = user.skills ?? '';
+                              _professionalAddressController.text = user.professionalAddress ?? '';
+                              _websiteController.text = user.website ?? '';
+                              setState(() => _isEditingPro = false);
+                            },
+                      child: const Text('Annuler'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _saveProfessionalInfo,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.save, size: 16),
+                      label: Text(
+                        _isSaving ? 'Enregistrement...' : 'Enregistrer',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[600],
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if ((user.companyName ?? '').isNotEmpty) ...[
+                  _InfoItem(
+                    icon: Icons.business,
+                    label: 'Entreprise',
+                    value: user.companyName!,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if ((user.skills ?? '').isNotEmpty) ...[
+                  _InfoItem(
+                    icon: Icons.lightbulb,
+                    label: 'Compétences',
+                    value: user.skills!,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if ((user.professionalAddress ?? '').isNotEmpty) ...[
+                  _InfoItem(
+                    icon: Icons.location_on,
+                    label: 'Adresse',
+                    value: user.professionalAddress!,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if ((user.website ?? '').isNotEmpty) ...[
+                  _InfoItem(
+                    icon: Icons.language,
+                    label: 'Site web',
+                    value: user.website!,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if ((user.companyName ?? '').isEmpty &&
+                    (user.skills ?? '').isEmpty &&
+                    (user.professionalAddress ?? '').isEmpty &&
+                    (user.website ?? '').isEmpty)
+                  Text(
+                    'Aucune information professionnelle renseignée',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
               ],
             ),
         ],

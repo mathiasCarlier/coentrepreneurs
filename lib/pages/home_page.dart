@@ -807,7 +807,10 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
                     valueColor: AlwaysStoppedAnimation(Colors.white),
                   ),
                 )
-              : const Text('Envoyer'),
+              : const Text(
+                  'Envoyer',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
         ),
       ],
     );

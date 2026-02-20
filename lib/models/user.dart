@@ -14,6 +14,13 @@ class User {
   String? photoUrl;
   final UserRole role;
 
+  // Champs professionnels (optionnels)
+  String? companyName;
+  String? skills;
+  String? professionalAddress;
+  String? website;
+  bool? shareProInfo; // Contrôle de partage des infos pro
+
   User({
     required this.uid,
     required this.email,
@@ -22,6 +29,12 @@ class User {
     this.phone = '',
     this.photoUrl,
     this.role = UserRole.invite,
+    // Champs professionnels
+    this.companyName,
+    this.skills,
+    this.professionalAddress,
+    this.website,
+    this.shareProInfo = false,
   });
 
   /// Convertit l'objet User en JSON
@@ -34,6 +47,12 @@ class User {
       'phone': phone,
       'photoUrl': photoUrl,
       'role': role.toString().split('.').last,
+      // Champs professionnels
+      'companyName': companyName,
+      'skills': skills,
+      'professionalAddress': professionalAddress,
+      'website': website,
+      'shareProInfo': shareProInfo ?? false,
     };
   }
 
@@ -47,6 +66,12 @@ class User {
       phone: (json['phone'] ?? '') as String,
       photoUrl: json['photoUrl'] as String?,
       role: _parseRole(json['role']),
+      // Champs professionnels
+      companyName: json['companyName'] as String?,
+      skills: json['skills'] as String?,
+      professionalAddress: json['professionalAddress'] as String?,
+      website: json['website'] as String?,
+      shareProInfo: (json['shareProInfo'] ?? false) as bool,
     );
   }
 
@@ -70,7 +95,13 @@ class User {
     String? nom,
     String? prenom,
     String? phone,
+    String? photoUrl,
     UserRole? role,
+    String? companyName,
+    String? skills,
+    String? professionalAddress,
+    String? website,
+    bool? shareProInfo,
   }) {
     return User(
       uid: uid ?? this.uid,
@@ -78,11 +109,19 @@ class User {
       nom: nom ?? this.nom,
       prenom: prenom ?? this.prenom,
       phone: phone ?? this.phone,
+      photoUrl: photoUrl ?? this.photoUrl,
       role: role ?? this.role,
+      companyName: companyName ?? this.companyName,
+      skills: skills ?? this.skills,
+      professionalAddress: professionalAddress ?? this.professionalAddress,
+      website: website ?? this.website,
+      shareProInfo: shareProInfo ?? this.shareProInfo,
     );
   }
 
   @override
   String toString() =>
-      'User(uid: $uid, email: $email, prenom: $prenom, nom: $nom, phone: $phone, photoUrl: $photoUrl, role: $role)';
+      'User(uid: $uid, email: $email, prenom: $prenom, nom: $nom, phone: $phone, '
+      'photoUrl: $photoUrl, role: $role, companyName: $companyName, skills: $skills, '
+      'professionalAddress: $professionalAddress, website: $website, shareProInfo: $shareProInfo)';
 }
