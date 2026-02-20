@@ -197,6 +197,17 @@ class _EventCard extends StatelessWidget {
     }
   }
 
+  Color _getStatusBackgroundColor(bool isDark) {
+    switch (event.status) {
+      case EventStatus.pending:
+        return isDark ? Colors.orange[900]!.withOpacity(0.3) : Colors.orange[50]!;
+      case EventStatus.started:
+        return isDark ? Colors.purple[900]!.withOpacity(0.3) : Colors.purple[50]!;
+      case EventStatus.finished:
+        return isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[200]!;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -247,7 +258,7 @@ class _EventCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _getStatusColor().withOpacity(0.2),
+                          color: _getStatusBackgroundColor(isDark),
                           border: Border.all(color: _getStatusColor()),
                           borderRadius: BorderRadius.circular(8),
                         ),

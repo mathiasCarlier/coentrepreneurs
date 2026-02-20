@@ -417,15 +417,28 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: _ContactButton(
-              icon: Icons.report_problem_outlined,
-              label: 'Signaler un problème',
-              color: Colors.green,
-              onPressed: () =>
-                  _showMessageDialog(context, user, 'Signalement de problème'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _ContactButton(
+                  icon: Icons.report_problem_outlined,
+                  label: 'Un problème',
+                  color: Colors.green,
+                  onPressed: () =>
+                      _showMessageDialog(context, user, 'Signalement de problème'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ContactButton(
+                  icon: Icons.star_outline,
+                  label: 'Bon plan',
+                  color: Colors.green,
+                  onPressed: () =>
+                      _showMessageDialog(context, user, 'Bon plan à proposer'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

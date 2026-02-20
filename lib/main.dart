@@ -83,7 +83,11 @@ ThemeData _buildLightTheme() {
     seedColor: seed,
     brightness: Brightness.light,
   );
-  final textTheme = GoogleFonts.interTextTheme();
+  final baseTextTheme = GoogleFonts.interTextTheme();
+  final textTheme = baseTextTheme.apply(
+    bodyColor: scheme.onSurface,
+    displayColor: scheme.onSurface,
+  );
 
   return ThemeData(
     useMaterial3: true,
@@ -105,11 +109,17 @@ ThemeData _buildLightTheme() {
       filled: true,
       fillColor: scheme.surfaceContainerHighest,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      // Make hint and label more visible in light mode
+      hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.8)),
+      labelStyle: TextStyle(color: scheme.onSurface.withOpacity(0.9)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Ensure button text is readable on colored background
+        foregroundColor: Colors.white,
+        backgroundColor: scheme.primary,
       ),
     ),
   );

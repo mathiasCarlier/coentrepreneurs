@@ -497,8 +497,8 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: widget.event.isStarted
-                    ? Colors.purple[900]?.withOpacity(0.3)
-                    : Colors.orange[900]?.withOpacity(0.3),
+                    ? (widget.isDark ? Colors.purple[900]?.withOpacity(0.3) : Colors.purple[50])
+                    : (widget.isDark ? Colors.orange[900]?.withOpacity(0.3) : Colors.orange[50]),
                 border: Border.all(
                   color: widget.event.isStarted
                       ? Colors.purple[400]!
@@ -641,7 +641,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.green[900]?.withOpacity(0.3),
+                color: widget.isDark ? Colors.green[900]?.withOpacity(0.3) : Colors.green[50],
                 border: Border.all(
                   color: Colors.green[400]!,
                   width: 1.5,

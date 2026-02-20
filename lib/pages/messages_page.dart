@@ -133,6 +133,29 @@ class _MessagesPageState extends State<MessagesPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
+                            'Catégorie:',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color.fromARGB(255, 37, 37, 37) : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDark ? Colors.black : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Text(
+                              data['category'] ?? 'N/A',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
                             'Message:',
                             style: Theme.of(context)
                                 .textTheme
@@ -143,9 +166,11 @@ class _MessagesPageState extends State<MessagesPage> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color.fromARGB(255, 37, 37, 37),
+                              color: isDark ? const Color.fromARGB(255, 37, 37, 37) : Colors.white,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.black),
+                              border: Border.all(
+                                color: isDark ? Colors.black : Colors.grey[300]!,
+                              ),
                             ),
                             child: Text(
                               data['message'] ?? '',
@@ -159,18 +184,26 @@ class _MessagesPageState extends State<MessagesPage> {
                               if (data['read'] != true)
                                 ElevatedButton.icon(
                                   onPressed: () => _markAsRead(messageDoc.id),
-                                  icon: const Icon(Icons.check, size: 18),
-                                  label: const Text('Marquer comme lu'),
+                                  icon: const Icon(Icons.check, size: 18, color: Colors.white),
+                                  label: const Text(
+                                    'Marquer comme lu',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green[600],
+                                    foregroundColor: Colors.white,
                                   ),
                                 ),
                               ElevatedButton.icon(
                                 onPressed: () => _deleteMessage(messageDoc.id),
-                                icon: const Icon(Icons.delete, size: 18),
-                                label: const Text('Supprimer'),
+                                icon: const Icon(Icons.delete, size: 18, color: Colors.white),
+                                label: const Text(
+                                  'Supprimer',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.red[600],
+                                  foregroundColor: Colors.white,
                                 ),
                               ),
                             ],

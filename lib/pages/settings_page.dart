@@ -417,7 +417,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 ElevatedButton.icon(
                   onPressed: () => setState(() => _isEditing = true),
                   icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Modifier'),
+                  label: const Text(
+                    'Modifier',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[600],
                     padding: const EdgeInsets.symmetric(
@@ -525,9 +528,12 @@ class _SettingsPageState extends State<SettingsPage> {
                             )
                           : const Icon(Icons.save, size: 16),
                       label: Text(
-                          _isSaving ? 'Enregistrement...' : 'Enregistrer'),
+                        _isSaving ? 'Enregistrement...' : 'Enregistrer',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green[600],
+                        foregroundColor: Colors.white,
                       ),
                     ),
                   ],

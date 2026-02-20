@@ -294,6 +294,7 @@ class _InvitationDialogState extends State<_InvitationDialog> {
           onPressed: _submitInvitations,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green[600],
+            foregroundColor: Colors.white,
           ),
           child: const Text('✅ Envoyer les invitations'),
         ),

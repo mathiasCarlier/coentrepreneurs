@@ -322,10 +322,14 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue.shade700,
+                            foregroundColor: Colors.white,
                           ),
                           child: const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('Retour'),
+                            child: Text(
+                              'Retour',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       )
@@ -366,6 +370,7 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                                 : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade700,
+                              foregroundColor: Colors.white,
                               disabledBackgroundColor: Colors.grey.shade300,
                             ),
                             child: const Padding(
@@ -373,7 +378,10 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                                 horizontal: 20,
                                 vertical: 12,
                               ),
-                              child: Text('Accepter'),
+                              child: Text(
+                                'Accepter',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ),
                         ],
