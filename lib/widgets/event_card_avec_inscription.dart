@@ -1,7 +1,7 @@
 // widgets/event_card.dart - VERSION CORRIGÉE
 import 'package:flutter/material.dart';
 import 'package:coentrepreneurs/models/event.dart';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/registration_service.dart';
 import 'package:coentrepreneurs/services/location_service.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
@@ -11,7 +11,7 @@ import 'package:coentrepreneurs/services/invitation_service.dart';
 class EventCard extends StatefulWidget {
   final Event event;
   final bool isDark;
-  final User? currentUser;
+  final user_model.User? currentUser;
   final bool showParticipantCount;
   final VoidCallback? onTap;
 

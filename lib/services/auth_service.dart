@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 
 // Service d'authentification et d'interface avec FirebaseAuth / Firestore.
 // Responsabilités principales :
@@ -23,7 +23,7 @@ class AuthService {
   final FirebaseFirestore _firestore;
 
   /// Stream qui émet les changements d'état d'authentification
-  Stream<User?> get authStateChanges {
+  Stream<user_model.User?> get authStateChanges {
     // On écoute FirebaseAuth puis on enrichit chaque `firebaseUser` avec
     // les données utilisateur stockées dans Firestore. `asyncMap` est utilisé
     // car la récupération Firestore est asynchrone.
@@ -34,7 +34,7 @@ class AuthService {
       try {
         final userData = await _getUserData(firebaseUser.uid);
         if (userData != null) {
-          return User(
+          return user_model.User(
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? '',
             nom: userData['nom'] ?? '',
@@ -44,38 +44,38 @@ class AuthService {
           );
         }
         // Si les données Firestore ne sont pas disponibles, créer un utilisateur minimal
-        return User(
+        return user_model.User(
           uid: firebaseUser.uid,
           email: firebaseUser.email ?? '',
           nom: '',
           prenom: '',
           phone: '',
-          role: UserRole.invite,
+          role: user_model.UserRole.invite,
         );
       } catch (e) {
         print('Erreur lors de la récupération des données utilisateur: $e');
         // Retourner un utilisateur avec les données de base même en cas d'erreur
-        return User(
+          return user_model.User(
           uid: firebaseUser.uid,
           email: firebaseUser.email ?? '',
           nom: '',
           prenom: '',
           phone: '',
-          role: UserRole.invite,
+          role: user_model.UserRole.invite,
         );
       }
     });
   }
 
   /// Récupère l'utilisateur actuel
-  Future<User?> get currentUser async {
+  Future<user_model.User?> get currentUser async {
     final firebaseUser = _auth.currentUser;
     if (firebaseUser == null) return null;
 
     try {
       final userData = await _getUserData(firebaseUser.uid);
-      if (userData != null) {
-        return User(
+        if (userData != null) {
+        return user_model.User(
           uid: firebaseUser.uid,
           email: firebaseUser.email ?? '',
           nom: userData['nom'] ?? '',
@@ -94,7 +94,7 @@ class AuthService {
   bool get isSignedIn => _auth.currentUser != null;
 
   /// Connexion avec email et mot de passe
-  Future<User?> login(String email, String password) async {
+  Future<user_model.User?> login(String email, String password) async {
     try {
       final result = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -108,7 +108,7 @@ class AuthService {
       try {
         final userData = await _getUserData(result.user!.uid);
         if (userData != null) {
-          return User(
+          return user_model.User(
             uid: result.user!.uid,
             email: result.user!.email ?? '',
             nom: userData['nom'] ?? '',
@@ -122,13 +122,13 @@ class AuthService {
         // Retourner un utilisateur minimal si Firestore est indisponible
       }
 
-      return User(
+      return user_model.User(
         uid: result.user!.uid,
         email: result.user!.email ?? '',
         nom: '',
         prenom: '',
         phone: '',
-        role: UserRole.invite,
+        role: user_model.UserRole.invite,
       );
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
@@ -138,13 +138,13 @@ class AuthService {
   }
 
   /// Inscription avec email, mot de passe et informations utilisateur
-  Future<User?> signup({
+  Future<user_model.User?> signup({
     required String email,
     required String password,
     required String nom,
     required String prenom,
     required String phone,
-    UserRole role = UserRole.invite,
+    user_model.UserRole role = user_model.UserRole.invite,
   }) async {
     try {
       // Validation des entrées
@@ -167,7 +167,7 @@ class AuthService {
       }
 
       // Sauvegarder les informations utilisateur dans Firestore
-      final user = User(
+      final user = user_model.User(
         uid: result.user!.uid,
         email: result.user!.email ?? email,
         nom: nom.trim(),
@@ -217,15 +217,15 @@ class AuthService {
   }
 
   /// Convertit une chaîne en UserRole
-  static UserRole _parseRole(String? roleStr) {
+  static user_model.UserRole _parseRole(String? roleStr) {
     switch (roleStr) {
       case 'admin':
-        return UserRole.admin;
+        return user_model.UserRole.admin;
       case 'adherent':
-        return UserRole.adherent;
+        return user_model.UserRole.adherent;
       case 'invite':
       default:
-        return UserRole.invite;
+        return user_model.UserRole.invite;
     }
   }
 

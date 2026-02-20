@@ -4,12 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
 
 class SettingsPage extends StatefulWidget {
-  final User user;
+  final user_model.User user;
 
   const SettingsPage({super.key, required this.user});
 
@@ -18,7 +18,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late User _user;
+  late user_model.User _user;
   late TextEditingController _prenom;
   late TextEditingController _nom;
   late TextEditingController _phoneController;
@@ -245,7 +245,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildProfileSection(
     BuildContext context,
-    User user,
+    user_model.User user,
     bool isDark,
   ) {
     return Container(
@@ -388,7 +388,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildUserInfoSection(
     BuildContext context,
-    User user,
+    user_model.User user,
     bool isDark,
   ) {
     return Container(
@@ -696,13 +696,13 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String _getRoleLabel(UserRole role) {
+  String _getRoleLabel(user_model.UserRole role) {
     switch (role) {
-      case UserRole.admin:
+      case user_model.UserRole.admin:
         return 'Administrateur';
-      case UserRole.adherent:
+      case user_model.UserRole.adherent:
         return 'Adhérent';
-      case UserRole.invite:
+      case user_model.UserRole.invite:
         return 'Invité';
     }
   }

@@ -1,11 +1,13 @@
-// pages/admin_events_page.dart - VERSION AVEC CONTRÔLE D'ÉTAT
+// pages/admin_events_page.dart - VERSION AVEC FEEDBACK AUTOMATIQUE
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/event.dart';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/widgets/event_guests_section.dart';
+import 'package:coentrepreneurs/widgets/feedback_dialog.dart';
 
 class AdminEventsPage extends StatefulWidget {
   const AdminEventsPage({super.key});
@@ -623,19 +625,18 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                         ],
                       ),
 
-                    // 🎯 SECTION INVITÉS - Nouvellement ajoutée
+                    // 🎯 SECTION INVITÉS - Affichée quand l'événement est en cours
                     if (widget.event.isStarted)
                       Column(
                         children: [
                           EventGuestsSection(
                             eventId: widget.event.id,
                             isDark: isDark,
-                            registeredUserIds: widget.event.registeredUserIds,  // ← AJOUTÉ
+                            registeredUserIds: widget.event.registeredUserIds,
                           ),
                           const SizedBox(height: 20),
                         ],
                       ),
-                      
 
                     // Liste des participants
                     if (widget.event.registeredUserIds.isNotEmpty)
@@ -829,7 +830,7 @@ class _ParticipantsSection extends StatefulWidget {
 }
 
 class _ParticipantsSectionState extends State<_ParticipantsSection> {
-  late Future<List<User>> _participantsFuture;
+  late Future<List<user_model.User>> _participantsFuture;
 
   @override
   void initState() {
@@ -837,20 +838,20 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
     _participantsFuture = _fetchParticipants();
   }
 
-  Future<List<User>> _fetchParticipants() async {
+  Future<List<user_model.User>> _fetchParticipants() async {
     try {
       final userIds = widget.userIds;
       if (userIds.isEmpty) return [];
 
       final firestore = FirebaseFirestore.instance;
-      final users = <User>[];
+      final users = <user_model.User>[];
 
       for (final userId in userIds) {
         try {
           final doc = await firestore.collection('users').doc(userId).get();
           if (doc.exists) {
             final data = doc.data()!;
-            users.add(User(
+            users.add(user_model.User(
               uid: userId,
               email: data['email'] ?? '',
               nom: data['nom'] ?? 'Inconnu',
@@ -871,14 +872,14 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
     }
   }
 
-  UserRole _stringToUserRole(String role) {
+  user_model.UserRole _stringToUserRole(String role) {
     switch (role.toLowerCase()) {
       case 'admin':
-        return UserRole.admin;
+        return user_model.UserRole.admin;
       case 'invite':
-        return UserRole.invite;
+        return user_model.UserRole.invite;
       default:
-        return UserRole.adherent;
+        return user_model.UserRole.adherent;
     }
   }
 
@@ -902,7 +903,7 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
           ],
         ),
         const SizedBox(height: 12),
-        FutureBuilder<List<User>>(
+        FutureBuilder<List<user_model.User>>(
           future: _participantsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {

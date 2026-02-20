@@ -2,7 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/event.dart';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 
 class RegistrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -187,7 +187,7 @@ class RegistrationService {
   // ========================================
 
   /// Obtenir tous les utilisateurs inscrits à un événement
-  Future<List<User>> getRegisteredUsers(String eventId) async {
+  Future<List<user_model.User>> getRegisteredUsers(String eventId) async {
     try {
       final event = await _firestore.collection('events').doc(eventId).get();
       if (!event.exists) return [];
@@ -195,13 +195,13 @@ class RegistrationService {
       final data = event.data() as Map<String, dynamic>;
       final registeredUserIds = List<String>.from(data['registeredUserIds'] ?? []);
 
-      final users = <User>[];
+      final users = <user_model.User>[];
       for (final userId in registeredUserIds) {
         try {
           final userDoc = await _firestore.collection('users').doc(userId).get();
           if (userDoc.exists) {
             final userData = userDoc.data() as Map<String, dynamic>;
-            users.add(User(
+            users.add(user_model.User(
               uid: userId,
               email: userData['email'] ?? '',
               nom: userData['nom'] ?? 'Inconnu',
@@ -222,7 +222,7 @@ class RegistrationService {
   }
 
   /// Obtenir tous les utilisateurs ayant confirmé pour un événement
-  Future<List<User>> getConfirmedUsers(String eventId) async {
+  Future<List<user_model.User>> getConfirmedUsers(String eventId) async {
     try {
       final event = await _firestore.collection('events').doc(eventId).get();
       if (!event.exists) return [];
@@ -230,13 +230,13 @@ class RegistrationService {
       final data = event.data() as Map<String, dynamic>;
       final confirmedUserIds = List<String>.from(data['confirmedParticipants'] ?? []);
 
-      final users = <User>[];
+      final users = <user_model.User>[];
       for (final userId in confirmedUserIds) {
         try {
           final userDoc = await _firestore.collection('users').doc(userId).get();
           if (userDoc.exists) {
             final userData = userDoc.data() as Map<String, dynamic>;
-            users.add(User(
+            users.add(user_model.User(
               uid: userId,
               email: userData['email'] ?? '',
               nom: userData['nom'] ?? 'Inconnu',
@@ -260,17 +260,17 @@ class RegistrationService {
   // 🔧 HELPERS
   // ========================================
 
-  UserRole _parseUserRole(dynamic roleValue) {
-    if (roleValue == null) return UserRole.adherent;
+  user_model.UserRole _parseUserRole(dynamic roleValue) {
+    if (roleValue == null) return user_model.UserRole.adherent;
     
     final role = roleValue.toString().toLowerCase();
     switch (role) {
       case 'admin':
-        return UserRole.admin;
+        return user_model.UserRole.admin;
       case 'invite':
-        return UserRole.invite;
+        return user_model.UserRole.invite;
       default:
-        return UserRole.adherent;
+        return user_model.UserRole.adherent;
     }
   }
 }

@@ -1,4 +1,5 @@
-// services/invitation_service.dart - CORRIGÉ (sans Cloud Function, avec email)
+// services/invitation_service.dart - VERSION CORRIGÉE
+// Ajoute automatiquement l'invité à event.registeredUserIds
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/models/invitation.dart';
@@ -23,7 +24,7 @@ class InvitationService {
         id: docRef.id,
         eventId: eventId,
         invitedByUserId: invitedByUserId,
-        invitedUserEmail: invitedUserEmail, // ✅ EMAIL INCLUS
+        invitedUserEmail: invitedUserEmail,
         invitedUserPrenom: invitedUserPrenom,
         invitedUserNom: invitedUserNom,
         status: InvitationStatus.pending,
@@ -36,11 +37,11 @@ class InvitationService {
   }
 
   // ========================================
-  // ✨ CRÉER UTILISATEURS + INVITATIONS (CORRIGÉ)
+  // ✨ CRÉER UTILISATEURS + INVITATIONS + AJOUTER À L'ÉVÉNEMENT
   // ========================================
 
   /// Crée les utilisateurs invités et les invitations
-  /// ✅ AVEC EMAIL - Juste sauvegardé, pas d'envoi de mail
+  /// ✅ NOUVEAU: Ajoute aussi l'invité à event.registeredUserIds
   Future<void> createInvitationsWithUsers({
     required String eventId,
     required String invitedByUserId,
@@ -50,13 +51,13 @@ class InvitationService {
       print('🚀 Création de ${invitations.length} invitation(s) avec utilisateurs...');
       
       final batch = _firestore.batch();
+      final List<String> newUserIds = []; // ✅ AJOUTÉ: Tracker les nouveaux users
 
       for (final inv in invitations) {
         final email = inv['email']?.toLowerCase().trim() ?? '';
         final prenom = inv['prenom']?.trim() ?? '';
         final nom = inv['nom']?.trim() ?? '';
 
-        // ✅ EMAIL EST REQUIS
         if (email.isEmpty || prenom.isEmpty || nom.isEmpty) {
           throw Exception('Données invalides: email, prenom et nom sont obligatoires');
         }
@@ -83,7 +84,7 @@ class InvitationService {
           userId = newUserRef.id;
 
           final userData = {
-            'email': email, // ✅ EMAIL SAUVEGARDÉ
+            'email': email,
             'prenom': prenom.trim(),
             'nom': nom.trim(),
             'role': 'invite', // ✅ Rôle invite
@@ -93,6 +94,7 @@ class InvitationService {
           };
 
           batch.set(newUserRef, userData);
+          newUserIds.add(userId); // ✅ AJOUTÉ: Tracker le nouvel user
           print('   ✅ Utilisateur créé: $userId avec email: $email');
         }
 
@@ -104,7 +106,7 @@ class InvitationService {
           id: invitationRef.id,
           eventId: eventId,
           invitedByUserId: invitedByUserId,
-          invitedUserEmail: email, // ✅ EMAIL DANS INVITATION
+          invitedUserEmail: email,
           invitedUserPrenom: prenom,
           invitedUserNom: nom,
           status: InvitationStatus.pending,
@@ -117,7 +119,21 @@ class InvitationService {
 
       print('\n⏳ Validation du batch...');
       await batch.commit();
-      print('✅ Batch commit réussi - ${invitations.length} invitation(s) créée(s)\n');
+      print('✅ Batch commit réussi - ${invitations.length} invitation(s) créée(s)');
+
+      // ✅ AJOUTÉ: Ajouter les nouveaux utilisateurs à event.registeredUserIds
+      if (newUserIds.isNotEmpty) {
+        print('\n📌 Ajout des nouveaux utilisateurs à event.registeredUserIds...');
+        for (final userId in newUserIds) {
+          print('   ➕ Ajout de $userId à registeredUserIds');
+          await _firestore.collection('events').doc(eventId).update({
+            'registeredUserIds': FieldValue.arrayUnion([userId]),
+          });
+        }
+        print('✅ Utilisateurs ajoutés à l\'événement');
+      }
+
+      print('\n✅ Invitations créées avec succès!\n');
     } catch (e) {
       print('❌ Erreur: $e');
       throw Exception('Erreur lors de la création des invitations: $e');
@@ -141,7 +157,7 @@ class InvitationService {
           id: docRef.id,
           eventId: eventId,
           invitedByUserId: invitedByUserId,
-          invitedUserEmail: inv['email'] ?? '', // ✅ EMAIL INCLUS
+          invitedUserEmail: inv['email'] ?? '',
           invitedUserPrenom: inv['prenom'] ?? '',
           invitedUserNom: inv['nom'] ?? '',
           status: InvitationStatus.pending,

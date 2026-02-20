@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 
 class EventGuestsSection extends StatefulWidget {
   final String eventId;
@@ -47,7 +47,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
 
             result.add({
               'userId': userId,
-              'user': User(
+              'user': user_model.User(
                 uid: userId,
                 email: userData['email'] ?? '',
                 nom: userData['nom'] ?? 'Inconnu',
@@ -73,15 +73,15 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
   }
 
   /// Convertit une string en UserRole
-  UserRole _stringToUserRole(String role) {
+  user_model.UserRole _stringToUserRole(String role) {
     switch (role.toLowerCase()) {
       case 'admin':
-        return UserRole.admin;
+        return user_model.UserRole.admin;
       case 'invite':
-        return UserRole.invite;
+        return user_model.UserRole.invite;
       case 'adherent':
       default:
-        return UserRole.adherent;
+        return user_model.UserRole.adherent;
     }
   }
 
@@ -203,7 +203,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: users.length,
               itemBuilder: (context, index) {
-                final user = users[index]['user'] as User;
+                final user = users[index]['user'] as user_model.User;
                 final userId = users[index]['userId'] as String;
 
                 return Padding(
@@ -280,7 +280,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            user.role == UserRole.admin ? '👑 Admin' : '✅ Adhérent',
+                            user.role == user_model.UserRole.admin ? '👑 Admin' : '✅ Adhérent',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -21,7 +21,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
 
-  final UserRole _selectedRole = UserRole.adherent;
+  final user_model.UserRole _selectedRole = user_model.UserRole.adherent;
   bool _loading = false;
   String? _error;
   bool _showPassword = false;

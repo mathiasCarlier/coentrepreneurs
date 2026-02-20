@@ -7,7 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coentrepreneurs/services/auth_service.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
-import 'package:coentrepreneurs/models/user.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_card_avec_inscription.dart';
@@ -179,7 +179,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: StreamBuilder<User?>(
+      body: StreamBuilder<user_model.User?>(
         stream: auth.authStateChanges,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -211,7 +211,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildAccessDeniedScreen(BuildContext context, User user) {
+  Widget _buildAccessDeniedScreen(BuildContext context, user_model.User user) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
@@ -274,7 +274,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMainContent(BuildContext context, User user) {
+  Widget _buildMainContent(BuildContext context, user_model.User user) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SingleChildScrollView(
@@ -297,7 +297,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildWelcomeSection(BuildContext context, User user, bool isDark) {
+  Widget _buildWelcomeSection(BuildContext context, user_model.User user, bool isDark) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -332,7 +332,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildContactSection(BuildContext context, User user, bool isDark) {
+  Widget _buildContactSection(BuildContext context, user_model.User user, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -432,7 +432,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showMessageDialog(BuildContext context, User user, String category) {
+  void _showMessageDialog(BuildContext context, user_model.User user, String category) {
     showDialog(
       context: context,
       builder: (context) => _MessageFormDialog(
@@ -442,10 +442,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildActionsSection(BuildContext context, User user, bool isDark) {
+  Widget _buildActionsSection(BuildContext context, user_model.User user, bool isDark) {
     return Column(
       children: [
-        if (user.role == UserRole.admin)
+        if (user.role == user_model.UserRole.admin)
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -466,9 +466,9 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-        if (user.role == UserRole.admin) const SizedBox(height: 12),
+        if (user.role == user_model.UserRole.admin) const SizedBox(height: 12),
 
-        if (user.role == UserRole.admin)
+        if (user.role == user_model.UserRole.admin)
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -489,7 +489,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-        if (user.role == UserRole.admin) const SizedBox(height: 12),
+        if (user.role == user_model.UserRole.admin) const SizedBox(height: 12),
 
         SizedBox(
           width: double.infinity,
@@ -515,18 +515,18 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _getRoleLabel(UserRole role) {
+  String _getRoleLabel(user_model.UserRole role) {
     switch (role) {
-      case UserRole.admin:
+      case user_model.UserRole.admin:
         return 'Administrateur';
-      case UserRole.adherent:
+      case user_model.UserRole.adherent:
         return 'Adhérent';
-      case UserRole.invite:
+      case user_model.UserRole.invite:
         return 'Invité';
     }
   }
 
-  Widget _buildEventsSection(BuildContext context, User user, bool isDark) {
+  Widget _buildEventsSection(BuildContext context, user_model.User user, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -640,7 +640,7 @@ class _ContactButton extends StatelessWidget {
 
 /// Formulaire simple pour écrire un message (stocké dans Firestore)
 class _MessageFormDialog extends StatefulWidget {
-  final User user;
+  final user_model.User user;
   final String category;
 
   const _MessageFormDialog({

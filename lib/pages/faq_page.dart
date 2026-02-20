@@ -245,7 +245,6 @@ class _FAQPageState extends State<FAQPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildCharteImage(),
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -255,6 +254,7 @@ class _FAQPageState extends State<FAQPage> {
                 return _buildCategoryCard(_categories[index], isDark);
               },
             ),
+            _buildCharteImage(),
           ],
         ),
       ),
