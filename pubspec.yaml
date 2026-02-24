@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.1.0
+
+  badges: ^3.1.2
   
   # Firebase - Versions stables pour Flutter 3.38
   firebase_core: ^4.4.0

@@ -16,7 +16,10 @@ class EventService {
     try {
       final docRef = _firestore.collection('events').doc();
       final newEvent = event.copyWith(id: docRef.id);
-      await docRef.set(newEvent.toMap());
+      final map = newEvent.toMap();
+      // Ajouter createdAt côté serveur pour pouvoir détecter les nouveautés
+      map['createdAt'] = FieldValue.serverTimestamp();
+      await docRef.set(map);
     } catch (e) {
       throw Exception('Erreur lors de la création de l\'événement: $e');
     }

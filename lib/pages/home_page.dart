@@ -1,8 +1,9 @@
-// pages/home_page.dart - VERSION MISE À JOUR AVEC FILTRAGE
+// pages/home_page.dart - VERSION AVEC NOTIFICATIONS
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:badges/badges.dart' as badges;
 
 import 'package:coentrepreneurs/services/auth_service.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
@@ -16,6 +17,7 @@ import 'package:coentrepreneurs/pages/messages_page.dart';
 import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
 import 'package:coentrepreneurs/pages/faq_page.dart'; 
 import 'package:coentrepreneurs/pages/directory_page_dynamic.dart';
+import 'package:coentrepreneurs/pages/notifications_page.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -129,6 +131,93 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // Stream pour compter les nouvelles adhésions (adhérents uniquement, pas invités)
+  Stream<int> _getNewAdherentsCount() {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .where('role', isEqualTo: 'UserRole.adherent')
+        .snapshots()
+        .map((snapshot) {
+      final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
+      return snapshot.docs
+          .where((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            final createdAt = data['createdAt'] as Timestamp?;
+            if (createdAt == null) return false;
+            return createdAt.toDate().isAfter(oneDayAgo);
+          })
+          .length;
+    });
+  }
+
+  // Stream pour compter les nouveaux événements créés aujourd'hui
+  Stream<int> _getNewEventsCount() {
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    
+    return FirebaseFirestore.instance
+        .collection('events')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .where((doc) {
+            final data = doc.data();
+            final createdAt = data['createdAt'] as Timestamp?;
+            if (createdAt == null) return false;
+            final createdDate = DateTime(
+              createdAt.toDate().year,
+              createdAt.toDate().month,
+              createdAt.toDate().day,
+            );
+            return createdDate.isAtSameMomentAs(todayStart) || createdDate.isAfter(todayStart);
+          })
+          .length;
+    });
+  }
+
+  // Stream combiné pour le badge total
+  Stream<int> _getTotalNotificationsCount() {
+    return FirebaseFirestore.instance.collection('users').snapshots().asyncMap((_) async {
+      final adherents = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'UserRole.adherent')
+          .get();
+
+      final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
+      final adherentsCount = adherents.docs
+          .where((doc) {
+            final data = doc.data();
+            final createdAt = data['createdAt'] as Timestamp?;
+            if (createdAt == null) return false;
+            return createdAt.toDate().isAfter(oneDayAgo);
+          })
+          .length;
+
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      
+      final events = await FirebaseFirestore.instance
+          .collection('events')
+          .get();
+
+      final eventsCount = events.docs
+          .where((doc) {
+            final data = doc.data();
+            final createdAt = data['createdAt'] as Timestamp?;
+            if (createdAt == null) return false;
+            final createdDate = DateTime(
+              createdAt.toDate().year,
+              createdAt.toDate().month,
+              createdAt.toDate().day,
+            );
+            return createdDate.isAtSameMomentAs(todayStart) || createdDate.isAfter(todayStart);
+          })
+          .length;
+
+      return adherentsCount + eventsCount;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
@@ -136,12 +225,46 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        // MODIFICATION 1 : Remplacer le titre par une icône maison
         title: const Icon(Icons.home, size: 28),
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [
-          // NOUVEAU : Bouton FAQ
+          // Bouton notifications avec badge
+          StreamBuilder<int>(
+            stream: _getTotalNotificationsCount(),
+            builder: (context, snapshot) {
+              final notificationCount = snapshot.data ?? 0;
+              
+              return badges.Badge(
+                badgeContent: Text(
+                  notificationCount > 99 ? '99+' : notificationCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                showBadge: notificationCount > 0,
+                position: badges.BadgePosition.topEnd(top: 0, end: 4),
+                badgeStyle: const badges.BadgeStyle(
+                  badgeColor: Colors.red,
+                  padding: EdgeInsets.all(4),
+                ),
+                child: IconButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationsPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.notifications_none, size: 24),
+                  tooltip: 'Notifications',
+                ),
+              );
+            },
+          ),
+          // Bouton FAQ
           IconButton(
             onPressed: () {
               Navigator.of(context).push(
@@ -153,7 +276,7 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.help_outline, size: 24),
             tooltip: 'FAQ',
           ),
-          // Bouton paramètres existant
+          // Bouton paramètres
           IconButton(
             onPressed: () {
               final auth = context.read<AuthService>();
@@ -602,7 +725,7 @@ class _HomePageState extends State<HomePage> {
                   event: upcomingEvents[index],
                   isDark: isDark,
                   currentUser: user,
-                  showParticipantCount: false, // ← CACHE LE NOMBRE DE PARTICIPANTS
+                  showParticipantCount: false,
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Détails: ${upcomingEvents[index].theme}')),

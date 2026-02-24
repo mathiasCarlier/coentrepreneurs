@@ -81,12 +81,11 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
               ],
             ),
           ),
-          // Liste des adhérents
+          // Liste des adhérents et admins
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestore
                   .collection('users')
-                  .where('role', isEqualTo: 'adherent')
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -113,10 +112,17 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
                   );
                 }
 
-                // Filtrer les adhérents selon la recherche
+                // Filtrer les adhérents et admins selon la recherche (exclure les invités)
                 final allMembers = snapshot.data!.docs;
                 final filteredMembers = allMembers.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
+                  final role = data['role']?.toString().toLowerCase() ?? 'invite';
+                  
+                  // Exclure les invités
+                  if (role == 'invite') {
+                    return false;
+                  }
+                  
                   final prenom = data['prenom']?.toString().toLowerCase() ?? '';
                   final nom = data['nom']?.toString().toLowerCase() ?? '';
                   final email = data['email']?.toString().toLowerCase() ?? '';
@@ -165,13 +171,11 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
     final nom = memberData['nom'] ?? 'N/A';
     final email = memberData['email'] ?? '';
     final phone = memberData['phone'] ?? '';
+    final role = memberData['role'] ?? 'adherent';
     
     // Informations professionnelles
     final shareProInfo = memberData['shareProInfo'] ?? false;
     final companyName = shareProInfo ? (memberData['companyName'] ?? '') : '';
-    final skills = shareProInfo ? (memberData['skills'] ?? '') : '';
-    final professionalAddress = shareProInfo ? (memberData['professionalAddress'] ?? '') : '';
-    final website = shareProInfo ? (memberData['website'] ?? '') : '';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12, top: 4),
@@ -180,113 +184,128 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: Colors.grey[300]!, width: 1),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Nom et prénom
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$prenom $nom',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      if (companyName.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          companyName,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.orange[700],
-                            fontWeight: FontWeight.w600,
-                          ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DirectoryDetailPage(memberData: memberData),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Nom, prénom et badge admin
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '$prenom $nom',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            // Badge Admin
+                            if (role == 'admin') ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[600],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  'Admin',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
+                        // Entreprise si partagée
+                        if (companyName.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            companyName,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            
-            // Rôle / Description
-            Text(
-              'Adhérent CoEntrepreneurs',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(
-                height: 1.35,
-                color: Colors.grey[600],
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-            
-            // Section informations professionnelles partagées
-            if (shareProInfo && (companyName.isNotEmpty || skills.isNotEmpty || professionalAddress.isNotEmpty || website.isNotEmpty))
-              ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.orange[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange[200]!,
-                      width: 1,
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (skills.isNotEmpty) ...[
-                        _buildProInfo(
-                          context,
-                          'Compétences',
-                          skills,
-                          Icons.lightbulb,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (professionalAddress.isNotEmpty) ...[
-                        _buildProInfo(
-                          context,
-                          'Adresse',
-                          professionalAddress,
-                          Icons.location_on,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (website.isNotEmpty) ...[
-                        _buildProInfo(
-                          context,
-                          'Site web',
-                          website,
-                          Icons.language,
-                        ),
-                      ],
-                    ],
+                  // Icône pour indiquer qu'il faut cliquer
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey[400],
                   ),
-                ),
-              ],
-            
-            const SizedBox(height: 12),
-            
-            // Infos de contact
-            if (phone.isNotEmpty) _buildContactInfo(phone, 'Tél'),
-            if (email.isNotEmpty) _buildContactInfo(email, 'Email'),
-            if (email.isNotEmpty || phone.isNotEmpty)
+                ],
+              ),
               const SizedBox(height: 12),
-            
-            // Boutons d'action
-            _buildActionButtons(phone, email, website),
-          ],
+              
+              // Tel et Email en ligne
+              Row(
+                children: [
+                  if (phone.isNotEmpty)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.phone, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              phone,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              if (phone.isNotEmpty && email.isNotEmpty)
+                const SizedBox(height: 8),
+              if (email.isNotEmpty)
+                Row(
+                  children: [
+                    Icon(Icons.email, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        email,
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -414,6 +433,305 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ========================================
+// 📄 PAGE DE DÉTAILS - Affichage complet
+// ========================================
+
+class DirectoryDetailPage extends StatelessWidget {
+  final Map<String, dynamic> memberData;
+
+  const DirectoryDetailPage({
+    super.key,
+    required this.memberData,
+  });
+
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  String _formatWebsiteUrl(String website) {
+    if (!website.startsWith('http://') && !website.startsWith('https://')) {
+      return 'https://$website';
+    }
+    return website;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final prenom = memberData['prenom'] ?? 'N/A';
+    final nom = memberData['nom'] ?? 'N/A';
+    final email = memberData['email'] ?? '';
+    final phone = memberData['phone'] ?? '';
+    final role = memberData['role'] ?? 'adherent';
+    
+    // Informations professionnelles
+    final shareProInfo = memberData['shareProInfo'] ?? false;
+    final companyName = shareProInfo ? (memberData['companyName'] ?? '') : '';
+    final skills = shareProInfo ? (memberData['skills'] ?? '') : '';
+    final professionalAddress = shareProInfo ? (memberData['professionalAddress'] ?? '') : '';
+    final website = shareProInfo ? (memberData['website'] ?? '') : '';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('$prenom $nom'),
+        elevation: 0,
+        backgroundColor: isDark ? const Color(0xFF1a1a1a) : Colors.white,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section En-tête
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  // Use a slightly lighter dark background and stronger border for contrast
+                  color: isDark ? Colors.grey[850] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Nom et badge
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$prenom $nom',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : null,
+                                ),
+                              ),
+                              if (companyName.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  companyName,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: isDark ? Colors.orange[300] : Colors.orange[700],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (role == 'admin')
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red[600],
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Text(
+                              'Admin',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Contacts
+                    if (phone.isNotEmpty)
+                      _buildDetailItem(
+                        icon: Icons.phone,
+                        label: 'Téléphone',
+                        value: phone,
+                        isDark: isDark,
+                      ),
+                    if (phone.isNotEmpty && email.isNotEmpty)
+                      const SizedBox(height: 12),
+                    if (email.isNotEmpty)
+                      _buildDetailItem(
+                        icon: Icons.email,
+                        label: 'Email',
+                        value: email,
+                        isDark: isDark,
+                      ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Section Infos professionnelles si partagées
+              if (shareProInfo && (skills.isNotEmpty || professionalAddress.isNotEmpty || website.isNotEmpty)) ...[
+                Text(
+                  'Informations professionnelles',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    // Dark mode: use a darker, slightly orange-tinted background
+                    color: isDark ? Colors.orange[900]?.withOpacity(0.08) : Colors.orange[50],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? Colors.orange[700]!.withOpacity(0.28) : Colors.orange[200]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (skills.isNotEmpty) ...[
+                        _buildDetailItem(
+                          icon: Icons.lightbulb,
+                          label: 'Compétences',
+                          value: skills,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (professionalAddress.isNotEmpty) ...[
+                        _buildDetailItem(
+                          icon: Icons.location_on,
+                          label: 'Adresse',
+                          value: professionalAddress,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (website.isNotEmpty) ...[
+                        _buildDetailItem(
+                          icon: Icons.language,
+                          label: 'Site web',
+                          value: website,
+                          isDark: isDark,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+              
+              // Boutons d'action
+              if (phone.isNotEmpty || email.isNotEmpty || website.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Actions',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        if (phone.isNotEmpty)
+                          ElevatedButton.icon(
+                            onPressed: () => _launchURL('tel:$phone'),
+                            icon: const Icon(Icons.phone),
+                            label: const Text('Appeler'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        if (email.isNotEmpty)
+                          ElevatedButton.icon(
+                            onPressed: () => _launchURL('mailto:$email'),
+                            icon: const Icon(Icons.email),
+                            label: const Text('Email'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        if (website.isNotEmpty)
+                          ElevatedButton.icon(
+                            onPressed: () => _launchURL(_formatWebsiteUrl(website)),
+                            icon: const Icon(Icons.language),
+                            label: const Text('Site web'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool isDark,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: isDark ? Colors.blue[300] : Colors.blue[600],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[300] : Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.grey[900],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

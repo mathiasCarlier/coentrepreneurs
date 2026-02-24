@@ -50,6 +50,45 @@ class _SettingsPageState extends State<SettingsPage> {
     _skillsController = TextEditingController(text: _user.skills ?? '');
     _professionalAddressController = TextEditingController(text: _user.professionalAddress ?? '');
     _websiteController = TextEditingController(text: _user.website ?? '');
+    
+    // Charger les données les plus récentes depuis Firestore
+    _loadUserData();
+  }
+
+  /// Charge les données de l'utilisateur depuis Firestore
+  Future<void> _loadUserData() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user.uid)
+          .get();
+
+      if (doc.exists && mounted) {
+        final data = doc.data() as Map<String, dynamic>;
+        
+        setState(() {
+          _user.prenom = data['prenom'] ?? '';
+          _user.nom = data['nom'] ?? '';
+          _user.phone = data['phone'] ?? '';
+          _user.companyName = data['companyName'] ?? '';
+          _user.skills = data['skills'] ?? '';
+          _user.professionalAddress = data['professionalAddress'] ?? '';
+          _user.website = data['website'] ?? '';
+          _user.shareProInfo = data['shareProInfo'] ?? false;
+          
+          // Mettre à jour les contrôleurs aussi
+          _prenom.text = _user.prenom;
+          _nom.text = _user.nom;
+          _phoneController.text = _user.phone;
+          _companyNameController.text = _user.companyName ?? '';
+          _skillsController.text = _user.skills ?? '';
+          _professionalAddressController.text = _user.professionalAddress ?? '';
+          _websiteController.text = _user.website ?? '';
+        });
+      }
+    } catch (e) {
+      print('Erreur lors du chargement des données: $e');
+    }
   }
 
   @override
@@ -329,7 +368,9 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 32),
 
               // Section Informations Professionnelles (nouvelles)
-              if (_user.role == user_model.UserRole.adherent)
+              // Disponible pour les adhérents ET les admins
+              if (_user.role == user_model.UserRole.adherent ||
+                  _user.role == user_model.UserRole.admin)
                 ...[
                   _buildProfessionalInfoSection(context, _user, isDark),
                   const SizedBox(height: 32),
