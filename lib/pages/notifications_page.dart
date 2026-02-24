@@ -1,6 +1,7 @@
 // pages/notifications_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -12,6 +13,35 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   int _selectedTab = 0; // 0 = Adhésions, 1 = Événements
+  final Set<String> _readEventIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReadIds();
+  }
+
+  Future<void> _loadReadIds() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    final ids = doc.data()?['readNotificationEventIds'];
+    if (ids is List && mounted) {
+      setState(() => _readEventIds.addAll(ids.cast<String>()));
+    }
+  }
+
+  Future<void> _markAsRead(String eventId) async {
+    setState(() => _readEventIds.add(eventId));
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      'readNotificationEventIds': FieldValue.arrayUnion([eventId]),
+    });
+  }
 
   // Stream pour les nouvelles adhésions (adhérents uniquement)
   Stream<List<Map<String, dynamic>>> _getNewAdherents() {
@@ -63,7 +93,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
               createdAt.toDate().month,
               createdAt.toDate().day,
             );
-            return createdDate.isAtSameMomentAs(todayStart) || createdDate.isAfter(todayStart);
+            if (!createdDate.isAtSameMomentAs(todayStart) && createdDate.isBefore(todayStart)) {
+              return false;
+            }
+            // Exclure les événements dont la date de rencontre est passée
+            final eventDateTs = data['date'] as Timestamp?;
+            if (eventDateTs == null) return false;
+            final eventDay = DateTime(
+              eventDateTs.toDate().year,
+              eventDateTs.toDate().month,
+              eventDateTs.toDate().day,
+            );
+            return !eventDay.isBefore(todayStart);
           })
           .map((doc) {
             final data = doc.data() as Map<String, dynamic>? ?? {};
@@ -182,7 +223,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           StreamBuilder<List<Map<String, dynamic>>>(
                             stream: _getNewEvents(),
                             builder: (context, snapshot) {
-                              final count = snapshot.data?.length ?? 0;
+                              final count = (snapshot.data ?? [])
+                                  .where((e) => !_readEventIds.contains(e['id']))
+                                  .length;
                               if (count == 0) return const SizedBox.shrink();
                               
                               return Container(
@@ -360,7 +403,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
           );
         }
 
-        final events = snapshot.data ?? [];
+        final events = (snapshot.data ?? [])
+            .where((e) => !_readEventIds.contains(e['id']))
+            .toList();
 
         if (events.isEmpty) {
           return Center(
@@ -395,10 +440,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           itemBuilder: (context, index) {
             final event = events[index];
             final eventDate = event['date'] as DateTime;
-            final createdAt = event['createdAt'] as Timestamp;
-            
             final formattedEventDate = DateFormat('dd/MM/yyyy').format(eventDate);
-            final formattedCreatedAt = DateFormat('dd/MM/yyyy HH:mm').format(createdAt.toDate());
 
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
@@ -430,12 +472,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 event['theme'],
                                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                event['lieu'],
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
                                 ),
                               ),
                             ],
@@ -476,19 +512,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange[100],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Créé: $formattedCreatedAt',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.orange[800],
+                          child: OutlinedButton.icon(
+                            onPressed: () => _markAsRead(event['id'] as String),
+                            icon: const Icon(Icons.check, size: 16),
+                            label: const Text('Marquer comme lu'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
                               ),
                             ),
                           ),

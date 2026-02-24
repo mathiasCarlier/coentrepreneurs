@@ -1,4 +1,3 @@
-// widgets/event_card.dart - VERSION CORRIGÉE
 import 'package:flutter/material.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
@@ -7,7 +6,18 @@ import 'package:coentrepreneurs/services/location_service.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/widgets/invitation_dialog.dart';
 import 'package:coentrepreneurs/services/invitation_service.dart';
+import 'package:coentrepreneurs/widgets/collation_dialog.dart';
 
+/// Carte interactive affichant une rencontre avec les actions disponibles
+/// selon l'état de l'utilisateur vis-à-vis de l'événement.
+///
+/// Quatre vues s'affichent mutuellement de manière exclusive, par ordre de priorité :
+/// 1. **Refusé** – carte compacte + bouton "Annuler le refus".
+/// 2. **Confirmé** – badge vert "Présent", message de confirmation.
+/// 3. **Inscrit** – badge état + bouton "Inviter quelqu'un" ou "Je suis présent".
+/// 4. **Non inscrit** – détails complets + boutons "S'inscrire" / "Refuser".
+///
+/// Toutes les mutations Firestore passent par [RegistrationService] et [EventService].
 class EventCard extends StatefulWidget {
   final Event event;
   final bool isDark;
@@ -64,6 +74,12 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   bool get _isUserConfirmed {
     return widget.currentUser != null
         ? widget.event.isUserConfirmed(widget.currentUser!.uid)
+        : false;
+  }
+
+  bool get _isUserDeclined {
+    return widget.currentUser != null
+        ? widget.event.isUserDeclined(widget.currentUser!.uid)
         : false;
   }
 
@@ -165,6 +181,103 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
             content: Text('Erreur: $e'),
             backgroundColor: Colors.red,
           ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _declineEvent() async {
+    if (widget.currentUser == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _registrationService.declineEvent(
+        widget.event.id,
+        widget.currentUser!.uid,
+      );
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Rencontre refusée'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _cancelDecline() async {
+    if (widget.currentUser == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _registrationService.cancelDecline(
+        widget.event.id,
+        widget.currentUser!.uid,
+      );
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Refus annulé'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _showCollationSelection() async {
+    if (widget.currentUser == null) return;
+
+    final selectedIndices = await showCollationDialog(
+      context,
+      event: widget.event,
+      currentUserId: widget.currentUser!.uid,
+    );
+
+    if (selectedIndices == null || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _registrationService.saveCollationChoice(
+        widget.event.id,
+        widget.currentUser!.uid,
+        selectedIndices,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(selectedIndices.isEmpty
+                ? 'Vous ne participez pas à la collation'
+                : 'Choix de collation enregistré !'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -301,24 +414,26 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(
                 color: widget.isDark 
-                  ? Colors.grey[800]!.withOpacity(0.5)
+                  ? Colors.grey[800]!.withValues(alpha: 0.5)
                   : Colors.grey[200]!,
                 width: 1,
               ),
             ),
             color: widget.isDark 
-              ? Colors.grey[900]?.withOpacity(0.6)
+              ? Colors.grey[900]?.withValues(alpha: 0.6)
               : Colors.white,
             child: InkWell(
               onTap: widget.onTap,
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: _isUserConfirmed
-                    ? _buildConfirmedView()
-                    : _isUserInscribed
-                        ? _buildInscribedView()
-                        : _buildUnregisteredView(),
+                child: _isUserDeclined
+                    ? _buildDeclinedView()
+                    : _isUserConfirmed
+                        ? _buildConfirmedView()
+                        : _isUserInscribed
+                            ? _buildInscribedView()
+                            : _buildUnregisteredView(),
               ),
             ),
           );
@@ -394,7 +509,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.orange[900]?.withOpacity(0.2),
+              color: Colors.orange[900]?.withValues(alpha: 0.2),
               border: Border.all(color: Colors.orange[400]!),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -416,24 +531,136 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             ),
           ),
 
-        // Bouton S'inscrire
+        // Boutons S'inscrire + Refuser
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: (!canRegister || _isLoading) ? null : _toggleRegistration,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check),
+                  label: Text(_isLoading ? 'En cours...' : 'je viens pas'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[600],
+                    textStyle: const TextStyle(fontSize: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (!widget.event.isStarted) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                    height: 44,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _declineEvent,
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('je ne viens pas'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[600],
+                        foregroundColor: Colors.white,
+                        textStyle: const TextStyle(fontSize: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ========================================
+  // ÉTAT 2: REFUSÉ
+  // ========================================
+  Widget _buildDeclinedView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Date + badge "Refusé"
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              widget.event.formattedDate,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Colors.grey[500],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: widget.isDark
+                    ? Colors.red[900]?.withValues(alpha: 0.3)
+                    : Colors.red[50],
+                border: Border.all(color: Colors.red[400]!, width: 1.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cancel, size: 14, color: Colors.red[400]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Refusé',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red[400],
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Titre
+        Text(
+          widget.event.theme,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 16),
+        // Bouton Annuler (pleine largeur, hauteur 44)
         SizedBox(
           width: double.infinity,
           height: 44,
-          child: ElevatedButton.icon(
-            onPressed: (!canRegister || _isLoading) ? null : _toggleRegistration,
+          child: OutlinedButton.icon(
+            onPressed: _isLoading ? null : _cancelDecline,
             icon: _isLoading
                 ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.check),
-            label: Text(_isLoading ? 'En cours...' : 'S\'inscrire'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[600],
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey[600],
+                : const Icon(Icons.undo),
+            label: const Text('Annuler le refus'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey[500]!),
+              foregroundColor: Colors.grey[500],
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -445,7 +672,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
   }
 
   // ========================================
-  // ÉTAT 2: INSCRIT - AVANT LE DÉBUT
+  // ÉTAT 3: INSCRIT - AVANT LE DÉBUT
   // ========================================
   Widget _buildInscribedView() {
     return Column(
@@ -493,8 +720,8 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: widget.event.isStarted
-                    ? (widget.isDark ? Colors.purple[900]?.withOpacity(0.3) : Colors.purple[50])
-                    : (widget.isDark ? Colors.orange[900]?.withOpacity(0.3) : Colors.orange[50]),
+                    ? (widget.isDark ? Colors.purple[900]?.withValues(alpha: 0.3) : Colors.purple[50])
+                    : (widget.isDark ? Colors.orange[900]?.withValues(alpha: 0.3) : Colors.orange[50]),
                 border: Border.all(
                   color: widget.event.isStarted
                       ? Colors.purple[400]!
@@ -585,12 +812,41 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               ),
             ),
           ),
+
+        // Bouton collation (si disponible)
+        if (widget.event.hasCollation && widget.currentUser != null) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _isLoading ? null : _showCollationSelection,
+              icon: Icon(
+                widget.event.hasUserChosenCollation(widget.currentUser!.uid)
+                    ? Icons.restaurant
+                    : Icons.restaurant_menu,
+              ),
+              label: Text(
+                widget.event.hasUserChosenCollation(widget.currentUser!.uid)
+                    ? 'Modifier mon choix de repas'
+                    : 'Choisir mon repas',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.amber[700],
+                side: BorderSide(color: Colors.amber[700]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
   // ========================================
-  // ÉTAT 3: CONFIRMÉ
+  // ÉTAT 4: CONFIRMÉ
   // ========================================
   Widget _buildConfirmedView() {
     return Column(
@@ -637,7 +893,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: widget.isDark ? Colors.green[900]?.withOpacity(0.3) : Colors.green[50],
+                color: widget.isDark ? Colors.green[900]?.withValues(alpha: 0.3) : Colors.green[50],
                 border: Border.all(
                   color: Colors.green[400]!,
                   width: 1.5,
@@ -677,7 +933,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.green[900]?.withOpacity(0.2),
+            color: Colors.green[900]?.withValues(alpha: 0.2),
             border: Border.all(color: Colors.green[400]!),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -698,6 +954,39 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             ],
           ),
         ),
+
+        // Bandeau collation si choix effectué
+        if (widget.event.hasCollation && widget.currentUser != null &&
+            widget.event.hasUserChosenCollation(widget.currentUser!.uid) &&
+            widget.event.getUserCollationItems(widget.currentUser!.uid).isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: widget.isDark
+                  ? Colors.amber[900]?.withValues(alpha: 0.2)
+                  : Colors.amber[50],
+              border: Border.all(color: Colors.amber[400]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.restaurant, size: 18, color: Colors.amber[400]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Repas réservé - Total : ${widget.event.getUserCollationTotal(widget.currentUser!.uid).toStringAsFixed(2).replaceAll('.', ',')} €',
+                    style: TextStyle(
+                      color: Colors.amber[widget.isDark ? 300 : 800],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

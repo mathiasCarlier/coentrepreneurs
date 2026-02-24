@@ -1,10 +1,17 @@
-// services/registration_service.dart - CORRIGÉ
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 
+/// Gère les inscriptions, refus et confirmations de présence aux rencontres.
+///
+/// Toutes les mutations s'appliquent directement sur le document Firestore de
+/// l'événement (`events/{eventId}`) via [FieldValue.arrayUnion] /
+/// [FieldValue.arrayRemove], garantissant l'atomicité sans transaction.
+///
+/// Les méthodes de lecture existent en deux variantes :
+/// - `Future` pour un accès ponctuel.
+/// - `Stream` pour une mise à jour en temps réel dans l'UI.
 class RegistrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -29,9 +36,61 @@ class RegistrationService {
       await _firestore.collection('events').doc(eventId).update({
         'registeredUserIds': FieldValue.arrayRemove([userId]),
         'confirmedParticipants': FieldValue.arrayRemove([userId]),
+        'collationParticipants.$userId': FieldValue.delete(),
       });
     } catch (e) {
       throw Exception('Erreur lors de la désinscription: $e');
+    }
+  }
+
+  /// Refuser une rencontre
+  Future<void> declineEvent(String eventId, String userId) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'declinedUserIds': FieldValue.arrayUnion([userId]),
+        'registeredUserIds': FieldValue.arrayRemove([userId]),
+        'confirmedParticipants': FieldValue.arrayRemove([userId]),
+        'collationParticipants.$userId': FieldValue.delete(),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors du refus: $e');
+    }
+  }
+
+  /// Annuler le refus d'une rencontre
+  Future<void> cancelDecline(String eventId, String userId) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'declinedUserIds': FieldValue.arrayRemove([userId]),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de l\'annulation du refus: $e');
+    }
+  }
+
+  // ========================================
+  // 🍽️ COLLATION
+  // ========================================
+
+  /// Enregistrer le choix de collation d'un utilisateur
+  Future<void> saveCollationChoice(String eventId, String userId, List<int> selectedIndices) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'collationParticipants.$userId': selectedIndices,
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de l\'enregistrement du choix de collation: $e');
+    }
+  }
+
+  /// Supprimer le choix de collation d'un utilisateur
+  Future<void> removeCollationChoice(String eventId, String userId) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'collationParticipants.$userId': FieldValue.delete(),
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de la suppression du choix de collation: $e');
     }
   }
 

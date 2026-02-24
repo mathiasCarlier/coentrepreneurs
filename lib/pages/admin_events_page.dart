@@ -1073,6 +1073,10 @@ class _EventFormDialogState extends State<_EventFormDialog> {
   bool _isLoading = false;
   String? _error;
 
+  // Collation
+  bool _hasCollation = false;
+  final List<_MenuItemEntry> _menuItems = [];
+
   @override
   void initState() {
     super.initState();
@@ -1084,6 +1088,17 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       text: widget.event?.maxParticipants.toString() ?? '30',
     );
     _selectedDate = widget.event?.date ?? DateTime.now();
+
+    // Pré-remplir la collation si édition
+    if (widget.event?.hasCollation == true) {
+      _hasCollation = true;
+      for (final item in widget.event!.collationMenu!) {
+        _menuItems.add(_MenuItemEntry(
+          nom: item.nom,
+          prix: item.prix.toStringAsFixed(2),
+        ));
+      }
+    }
   }
 
   @override
@@ -1093,6 +1108,9 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     _entrepriseController.dispose();
     _lieuController.dispose();
     _maxParticipantsController.dispose();
+    for (final item in _menuItems) {
+      item.dispose();
+    }
     super.dispose();
   }
 
@@ -1124,6 +1142,29 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       return;
     }
 
+    // Validation collation
+    List<CollationItem>? collationMenu;
+    if (_hasCollation) {
+      collationMenu = [];
+      for (int i = 0; i < _menuItems.length; i++) {
+        final nom = _menuItems[i].nomController.text.trim();
+        final prix = double.tryParse(_menuItems[i].prixController.text.trim().replaceAll(',', '.'));
+        if (nom.isEmpty) {
+          setState(() => _error = 'Nom du plat ${i + 1} manquant');
+          return;
+        }
+        if (prix == null || prix < 0) {
+          setState(() => _error = 'Prix invalide pour le plat ${i + 1}');
+          return;
+        }
+        collationMenu.add(CollationItem(nom: nom, prix: prix));
+      }
+      if (collationMenu.isEmpty) {
+        setState(() => _error = 'Ajoutez au moins un plat au menu');
+        return;
+      }
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -1140,6 +1181,9 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         maxParticipants: maxParticipants,
         registeredUserIds: widget.event?.registeredUserIds ?? [],
         confirmedParticipants: widget.event?.confirmedParticipants ?? [],
+        declinedUserIds: widget.event?.declinedUserIds ?? [],
+        collationMenu: collationMenu,
+        collationParticipants: widget.event?.collationParticipants ?? {},
         status: widget.event?.status ?? EventStatus.pending,
       );
 
@@ -1147,6 +1191,16 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         await widget.eventService.createEvent(event);
       } else {
         await widget.eventService.updateEvent(widget.event!.id, event);
+        // Si la collation a été désactivée, nettoyer les champs Firestore
+        if (!_hasCollation && widget.event!.hasCollation) {
+          await FirebaseFirestore.instance
+              .collection('events')
+              .doc(widget.event!.id)
+              .update({
+            'collationMenu': FieldValue.delete(),
+            'collationParticipants': FieldValue.delete(),
+          });
+        }
       }
 
       if (mounted) {
@@ -1242,12 +1296,87 @@ class _EventFormDialogState extends State<_EventFormDialog> {
                 label: Text('Date: ${_formatDate(_selectedDate)}'),
               ),
             ),
+            const SizedBox(height: 16),
+            const Divider(),
+            // Section Collation
+            SwitchListTile(
+              title: const Text('Collation / Repas'),
+              subtitle: const Text('Proposer un menu aux participants'),
+              value: _hasCollation,
+              contentPadding: EdgeInsets.zero,
+              onChanged: _isLoading ? null : (val) {
+                setState(() {
+                  _hasCollation = val;
+                  if (val && _menuItems.isEmpty) {
+                    _menuItems.add(_MenuItemEntry());
+                  }
+                });
+              },
+            ),
+            if (_hasCollation) ...[
+              const SizedBox(height: 8),
+              ...List.generate(_menuItems.length, (index) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: _menuItems[index].nomController,
+                          enabled: !_isLoading,
+                          decoration: InputDecoration(
+                            labelText: 'Plat ${index + 1}',
+                            hintText: 'Nom du plat',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: _menuItems[index].prixController,
+                          enabled: !_isLoading,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            labelText: 'Prix (€)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        onPressed: _isLoading ? null : () {
+                          setState(() {
+                            _menuItems[index].dispose();
+                            _menuItems.removeAt(index);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              TextButton.icon(
+                onPressed: _isLoading ? null : () {
+                  setState(() => _menuItems.add(_MenuItemEntry()));
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter un plat'),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   border: Border.all(color: Colors.red),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1277,5 +1406,19 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         ),
       ],
     );
+  }
+}
+
+class _MenuItemEntry {
+  final TextEditingController nomController;
+  final TextEditingController prixController;
+
+  _MenuItemEntry({String nom = '', String prix = ''})
+      : nomController = TextEditingController(text: nom),
+        prixController = TextEditingController(text: prix);
+
+  void dispose() {
+    nomController.dispose();
+    prixController.dispose();
   }
 }

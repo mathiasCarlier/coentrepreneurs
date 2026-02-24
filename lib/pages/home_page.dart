@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:badges/badges.dart' as badges;
 
 import 'package:coentrepreneurs/services/auth_service.dart';
@@ -18,6 +19,7 @@ import 'package:coentrepreneurs/pages/admin_events_page.dart';
 import 'package:coentrepreneurs/pages/faq_page.dart'; 
 import 'package:coentrepreneurs/pages/directory_page_dynamic.dart';
 import 'package:coentrepreneurs/pages/notifications_page.dart';
+import 'package:coentrepreneurs/pages/all_events_page.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -196,6 +198,18 @@ class _HomePageState extends State<HomePage> {
       final today = DateTime.now();
       final todayStart = DateTime(today.year, today.month, today.day);
       
+      // Récupérer les IDs déjà marqués comme lus par l'utilisateur courant
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      Set<String> readIds = {};
+      if (uid != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .get();
+        final ids = userDoc.data()?['readNotificationEventIds'];
+        if (ids is List) readIds = ids.cast<String>().toSet();
+      }
+
       final events = await FirebaseFirestore.instance
           .collection('events')
           .get();
@@ -203,6 +217,7 @@ class _HomePageState extends State<HomePage> {
       final eventsCount = events.docs
           .where((doc) {
             final data = doc.data();
+            if (readIds.contains(doc.id)) return false;
             final createdAt = data['createdAt'] as Timestamp?;
             if (createdAt == null) return false;
             final createdDate = DateTime(
@@ -210,7 +225,18 @@ class _HomePageState extends State<HomePage> {
               createdAt.toDate().month,
               createdAt.toDate().day,
             );
-            return createdDate.isAtSameMomentAs(todayStart) || createdDate.isAfter(todayStart);
+            if (!createdDate.isAtSameMomentAs(todayStart) && createdDate.isBefore(todayStart)) {
+              return false;
+            }
+            // Exclure les événements dont la date de rencontre est passée
+            final eventDateTs = data['date'] as Timestamp?;
+            if (eventDateTs == null) return false;
+            final eventDay = DateTime(
+              eventDateTs.toDate().year,
+              eventDateTs.toDate().month,
+              eventDateTs.toDate().day,
+            );
+            return !eventDay.isBefore(todayStart);
           })
           .length;
 
@@ -258,9 +284,28 @@ class _HomePageState extends State<HomePage> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.notifications_none, size: 24),
+                  icon: const Icon(Icons.mail_outline, size: 24),
                   tooltip: 'Notifications',
                 ),
+              );
+            },
+          ),
+          // Bouton toutes les rencontres
+          StreamBuilder<user_model.User?>(
+            stream: auth.authStateChanges,
+            builder: (context, snapshot) {
+              final user = snapshot.data;
+              if (user == null) return const SizedBox.shrink();
+              return IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => AllEventsPage(currentUser: user),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.calendar_month, size: 24),
+                tooltip: 'Toutes les rencontres',
               );
             },
           ),
