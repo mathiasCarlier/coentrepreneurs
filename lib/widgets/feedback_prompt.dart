@@ -36,6 +36,18 @@ class _FeedbackPromptState extends State<FeedbackPrompt> {
     });
   }
 
+  @override
+  void didUpdateWidget(FeedbackPrompt oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Détecter le passage en statut "finished" en temps réel (ex: admin termine la rencontre)
+    if (!_feedbackShown &&
+        oldWidget.event.status != EventStatus.finished &&
+        widget.event.status == EventStatus.finished) {
+      debugPrint('🔄 Statut passé à finished - vérification du feedback');
+      _checkAndShowFeedback();
+    }
+  }
+
   Future<void> _checkAndShowFeedback() async {
     debugPrint('📋 Vérification des conditions du feedback...');
 

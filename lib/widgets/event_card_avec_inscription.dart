@@ -546,7 +546,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check),
-                  label: Text(_isLoading ? 'En cours...' : 'je viens pas'),
+                  label: Text(_isLoading ? 'En cours...' : 'je viens'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[600],
                     foregroundColor: Colors.white,

@@ -13,6 +13,7 @@ import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_card_avec_inscription.dart';
+import 'package:coentrepreneurs/widgets/feedback_prompt.dart';
 import 'package:coentrepreneurs/pages/settings_page.dart'; 
 import 'package:coentrepreneurs/pages/messages_page.dart';
 import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
@@ -736,7 +737,7 @@ class _HomePageState extends State<HomePage> {
             // Filtrer les événements futurs (à partir d'aujourd'hui)
             final today = DateTime.now();
             final todayStart = DateTime(today.year, today.month, today.day);
-            
+
             final upcomingEvents = allEvents
                 .where((event) {
                   // Créer une date sans l'heure pour comparer uniquement la date
@@ -746,38 +747,51 @@ class _HomePageState extends State<HomePage> {
                 .take(2) // Prendre seulement les 2 prochains
                 .toList();
 
-            if (upcomingEvents.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Aucun événement prévu pour le moment',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
-            }
+            // Événements terminés : FeedbackPrompt invisible déclenche le formulaire
+            final finishedEvents = allEvents
+                .where((event) => event.status == EventStatus.finished)
+                .toList();
 
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: upcomingEvents.length,
-              itemBuilder: (context, index) {
-                return EventCard(
-                  event: upcomingEvents[index],
-                  isDark: isDark,
-                  currentUser: user,
-                  showParticipantCount: false,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Détails: ${upcomingEvents[index].theme}')),
-                    );
-                  },
-                );
-              },
+            return Column(
+              children: [
+                // Widgets invisibles qui déclenchent le feedback au bon moment
+                ...finishedEvents.map((event) => FeedbackPrompt(
+                  key: ValueKey('fp_${event.id}'),
+                  event: event,
+                )),
+                if (upcomingEvents.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Aucun événement prévu pour le moment',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: upcomingEvents.length,
+                    itemBuilder: (context, index) {
+                      return EventCard(
+                        event: upcomingEvents[index],
+                        isDark: isDark,
+                        currentUser: user,
+                        showParticipantCount: false,
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Détails: ${upcomingEvents[index].theme}')),
+                          );
+                        },
+                      );
+                    },
+                  ),
+              ],
             );
           },
         ),
