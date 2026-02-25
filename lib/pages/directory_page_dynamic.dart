@@ -606,7 +606,7 @@ class DirectoryDetailPage extends StatelessWidget {
                       if (skills.isNotEmpty) ...[
                         _buildDetailItem(
                           icon: Icons.lightbulb,
-                          label: 'Compétences',
+                          label: 'Activités / Compétences',
                           value: skills,
                           isDark: isDark,
                         ),

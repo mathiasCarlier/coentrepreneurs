@@ -11,31 +11,14 @@ enum EventStatus {
   finished,
 }
 
-/// Élément du menu de collation (nom + prix).
-class CollationItem {
-  final String nom;
-  final double prix;
-
-  const CollationItem({required this.nom, required this.prix});
-
-  Map<String, dynamic> toMap() => {'nom': nom, 'prix': prix};
-
-  factory CollationItem.fromMap(Map<String, dynamic> map) {
-    return CollationItem(
-      nom: map['nom'] ?? '',
-      prix: (map['prix'] as num?)?.toDouble() ?? 0.0,
-    );
-  }
-}
-
 /// Représente une rencontre/événement de la plateforme.
 ///
 /// Les listes [registeredUserIds], [confirmedParticipants] et [declinedUserIds]
 /// sont des tableaux Firestore mis à jour atomiquement via [FieldValue.arrayUnion]
 /// / [FieldValue.arrayRemove] dans [RegistrationService].
 ///
-/// [collationMenu] est optionnel (null = pas de collation).
-/// [collationParticipants] mappe chaque userId vers les indices des plats choisis.
+/// [collationMenuText] est optionnel (null = pas de collation).
+/// [collationParticipants] contient les userId ayant répondu "oui" au repas.
 class Event {
   final String id;
   final DateTime date;
@@ -47,9 +30,10 @@ class Event {
   final List<String> registeredUserIds;      // Inscrits
   final List<String> confirmedParticipants;  // Confirmés présents
   final List<String> declinedUserIds;        // Ayant refusé
-  final List<CollationItem>? collationMenu;  // Menu collation (null = pas de collation)
-  final Map<String, List<int>> collationParticipants; // userId → indices plats choisis
-  final EventStatus status;                   // État de l'événement
+  final String? collationMenuText;           // Description du menu (null = pas de collation)
+  final List<String> collationParticipants;  // userId ayant dit "oui" au repas
+  final EventStatus status;                  // État de l'événement
+  final String? summary;                     // Compte-rendu en Markdown (null = pas encore rédigé)
 
   Event({
     required this.id,
@@ -62,9 +46,10 @@ class Event {
     this.registeredUserIds = const [],
     this.confirmedParticipants = const [],
     this.declinedUserIds = const [],
-    this.collationMenu,
-    this.collationParticipants = const {},
+    this.collationMenuText,
+    this.collationParticipants = const [],
     this.status = EventStatus.pending,
+    this.summary,
   });
 
   // ✅ Getters pour simplifier le code
@@ -103,21 +88,10 @@ class Event {
   bool get isFinished => status == EventStatus.finished;
 
   // ✅ Collation
-  bool get hasCollation => collationMenu != null && collationMenu!.isNotEmpty;
+  bool get hasCollation => collationMenuText != null && collationMenuText!.isNotEmpty;
+  bool get hasSummary => summary != null && summary!.isNotEmpty;
 
-  bool hasUserChosenCollation(String uid) => collationParticipants.containsKey(uid);
-
-  List<CollationItem> getUserCollationItems(String uid) {
-    if (!hasCollation || !collationParticipants.containsKey(uid)) return [];
-    return collationParticipants[uid]!
-        .where((i) => i >= 0 && i < collationMenu!.length)
-        .map((i) => collationMenu![i])
-        .toList();
-  }
-
-  double getUserCollationTotal(String uid) {
-    return getUserCollationItems(uid).fold(0.0, (total, item) => total + item.prix);
-  }
+  bool hasUserChosenCollation(String uid) => collationParticipants.contains(uid);
 
   // ✅ Conversion vers/depuis Firestore
   Map<String, dynamic> toMap() {
@@ -134,11 +108,14 @@ class Event {
       'declinedUserIds': declinedUserIds,
       'status': status.toString().split('.').last,
     };
-    if (collationMenu != null) {
-      map['collationMenu'] = collationMenu!.map((e) => e.toMap()).toList();
+    if (collationMenuText != null && collationMenuText!.isNotEmpty) {
+      map['collationMenuText'] = collationMenuText;
     }
     if (collationParticipants.isNotEmpty) {
       map['collationParticipants'] = collationParticipants;
+    }
+    if (summary != null && summary!.isNotEmpty) {
+      map['summary'] = summary;
     }
     return map;
   }
@@ -155,17 +132,10 @@ class Event {
       registeredUserIds: List<String>.from(map['registeredUserIds'] ?? []),
       confirmedParticipants: List<String>.from(map['confirmedParticipants'] ?? []),
       declinedUserIds: List<String>.from(map['declinedUserIds'] ?? []),
-      collationMenu: map['collationMenu'] != null
-          ? (map['collationMenu'] as List)
-              .map((e) => CollationItem.fromMap(Map<String, dynamic>.from(e)))
-              .toList()
-          : null,
-      collationParticipants: map['collationParticipants'] != null
-          ? (map['collationParticipants'] as Map<String, dynamic>).map(
-              (key, value) => MapEntry(key, List<int>.from(value)),
-            )
-          : {},
+      collationMenuText: map['collationMenuText'] as String?,
+      collationParticipants: List<String>.from(map['collationParticipants'] ?? []),
       status: _statusFromString(map['status'] ?? 'pending'),
+      summary: map['summary'] as String?,
     );
   }
 
@@ -191,10 +161,12 @@ class Event {
     List<String>? registeredUserIds,
     List<String>? confirmedParticipants,
     List<String>? declinedUserIds,
-    List<CollationItem>? collationMenu,
-    bool clearCollationMenu = false,
-    Map<String, List<int>>? collationParticipants,
+    String? collationMenuText,
+    bool clearCollationMenuText = false,
+    List<String>? collationParticipants,
     EventStatus? status,
+    String? summary,
+    bool clearSummary = false,
   }) {
     return Event(
       id: id ?? this.id,
@@ -207,9 +179,10 @@ class Event {
       registeredUserIds: registeredUserIds ?? this.registeredUserIds,
       confirmedParticipants: confirmedParticipants ?? this.confirmedParticipants,
       declinedUserIds: declinedUserIds ?? this.declinedUserIds,
-      collationMenu: clearCollationMenu ? null : (collationMenu ?? this.collationMenu),
+      collationMenuText: clearCollationMenuText ? null : (collationMenuText ?? this.collationMenuText),
       collationParticipants: collationParticipants ?? this.collationParticipants,
       status: status ?? this.status,
+      summary: clearSummary ? null : (summary ?? this.summary),
     );
   }
 }

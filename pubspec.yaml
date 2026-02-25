@@ -30,6 +30,9 @@ dependencies:
   # UI
   google_fonts: ^8.0.0
   
+  # Markdown
+  flutter_markdown_plus: ^1.0.3
+
   # Utils
   intl: ^0.20.2
   url_launcher: ^6.3.2

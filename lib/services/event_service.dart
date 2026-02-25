@@ -86,6 +86,17 @@ class EventService {
     }
   }
 
+  /// Mettre à jour le compte-rendu (Markdown) d'un événement terminé
+  Future<void> updateEventSummary(String eventId, String summary) async {
+    try {
+      await _firestore.collection('events').doc(eventId).update({
+        'summary': summary,
+      });
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour du compte-rendu: $e');
+    }
+  }
+
   /// Récupérer un événement spécifique
   Future<Event?> getEvent(String eventId) async {
     try {

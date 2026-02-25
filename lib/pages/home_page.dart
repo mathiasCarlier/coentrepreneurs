@@ -784,9 +784,25 @@ class _HomePageState extends State<HomePage> {
                         currentUser: user,
                         showParticipantCount: false,
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Détails: ${upcomingEvents[index].theme}')),
+                          final messenger = ScaffoldMessenger.of(context);
+                          messenger.showMaterialBanner(
+                            MaterialBanner(
+                              content: Text(
+                                upcomingEvents[index].theme,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              leading: const Icon(Icons.event),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => messenger.hideCurrentMaterialBanner(),
+                                  child: const Text('Fermer'),
+                                ),
+                              ],
+                            ),
                           );
+                          Future.delayed(const Duration(seconds: 4), () {
+                            messenger.hideCurrentMaterialBanner();
+                          });
                         },
                       );
                     },

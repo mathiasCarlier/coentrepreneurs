@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:coentrepreneurs/models/event.dart';
 
-/// Affiche le dialogue de sélection de collation pour un événement.
+/// Affiche le dialogue de participation au repas pour un événement.
 ///
 /// Retourne :
-/// - `List<int>` des indices sélectionnés si l'utilisateur valide
-/// - `[]` (liste vide) si l'utilisateur choisit "Ne pas participer"
+/// - `true` si l'utilisateur souhaite participer au repas
+/// - `false` si l'utilisateur ne souhaite pas participer
 /// - `null` si le dialogue est annulé (pas de changement)
-Future<List<int>?> showCollationDialog(
+Future<bool?> showCollationDialog(
   BuildContext context, {
   required Event event,
   required String currentUserId,
 }) {
-  return showDialog<List<int>>(
+  return showDialog<bool>(
     context: context,
     builder: (context) => _CollationDialog(
       event: event,
@@ -21,7 +21,7 @@ Future<List<int>?> showCollationDialog(
   );
 }
 
-class _CollationDialog extends StatefulWidget {
+class _CollationDialog extends StatelessWidget {
   final Event event;
   final String currentUserId;
 
@@ -31,140 +31,70 @@ class _CollationDialog extends StatefulWidget {
   });
 
   @override
-  State<_CollationDialog> createState() => _CollationDialogState();
-}
-
-class _CollationDialogState extends State<_CollationDialog> {
-  late Set<int> _selectedIndices;
-
-  @override
-  void initState() {
-    super.initState();
-    // Pré-sélectionner les choix existants
-    final existing = widget.event.collationParticipants[widget.currentUserId];
-    _selectedIndices = existing != null ? Set<int>.from(existing) : {};
-  }
-
-  double get _total {
-    if (widget.event.collationMenu == null) return 0;
-    return _selectedIndices
-        .where((i) => i >= 0 && i < widget.event.collationMenu!.length)
-        .fold(0.0, (total, i) => total + widget.event.collationMenu![i].prix);
-  }
-
-  String _formatPrice(double price) {
-    return price.toStringAsFixed(2).replaceAll('.', ',');
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final menu = widget.event.collationMenu!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final alreadyParticipating = event.hasUserChosenCollation(currentUserId);
 
     return AlertDialog(
       title: Row(
         children: [
           Icon(Icons.restaurant_menu, color: Colors.amber[700]),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Menu - Collation')),
+          const Expanded(child: Text('Repas / Collation')),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Info
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.amber[900]?.withValues(alpha: 0.2)
-                    : Colors.amber[50],
-                border: Border.all(
-                  color: Colors.amber[400]!,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 18, color: Colors.amber[700]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Sélectionnez les plats que vous souhaitez commander.',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Menu
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.amber[900]?.withValues(alpha: 0.2)
+                  : Colors.amber[50],
+              border: Border.all(color: Colors.amber[400]!),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.menu_book, size: 16, color: Colors.amber[700]),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Menu proposé',
                       style: TextStyle(
                         fontSize: 12,
+                        fontWeight: FontWeight.w600,
                         color: isDark ? Colors.amber[300] : Colors.amber[800],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Liste des plats
-            ...List.generate(menu.length, (index) {
-              final item = menu[index];
-              final isSelected = _selectedIndices.contains(index);
-              return CheckboxListTile(
-                value: isSelected,
-                onChanged: (val) {
-                  setState(() {
-                    if (val == true) {
-                      _selectedIndices.add(index);
-                    } else {
-                      _selectedIndices.remove(index);
-                    }
-                  });
-                },
-                title: Text(
-                  item.nom,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-                subtitle: Text(
-                  '${_formatPrice(item.prix)} €',
-                  style: TextStyle(
-                    color: Colors.amber[700],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              );
-            }),
-
-            // Total
-            if (_selectedIndices.isNotEmpty) ...[
-              const Divider(),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Total',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      '${_formatPrice(_total)} €',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.amber[700],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ],
-        ),
+                const SizedBox(height: 8),
+                Text(
+                  event.collationMenuText ?? '',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.amber[100] : Colors.amber[900],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            alreadyParticipating
+                ? 'Vous participez actuellement au repas. Souhaitez-vous modifier votre réponse ?'
+                : 'Souhaitez-vous participer au repas ?',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -172,21 +102,17 @@ class _CollationDialogState extends State<_CollationDialog> {
           child: const Text('Annuler'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(<int>[]),
-          child: Text(
-            'Ne pas participer',
-            style: TextStyle(color: Colors.grey[500]),
-          ),
+          onPressed: () => Navigator.of(context).pop(false),
+          style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
+          child: const Text('Non merci'),
         ),
         ElevatedButton(
-          onPressed: _selectedIndices.isEmpty
-              ? null
-              : () => Navigator.of(context).pop(_selectedIndices.toList()),
+          onPressed: () => Navigator.of(context).pop(true),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.amber[700],
             foregroundColor: Colors.white,
           ),
-          child: const Text('Valider'),
+          child: const Text('Oui, je participe'),
         ),
       ],
     );

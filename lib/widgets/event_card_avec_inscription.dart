@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/registration_service.dart';
@@ -249,27 +250,27 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   Future<void> _showCollationSelection() async {
     if (widget.currentUser == null) return;
 
-    final selectedIndices = await showCollationDialog(
+    final participates = await showCollationDialog(
       context,
       event: widget.event,
       currentUserId: widget.currentUser!.uid,
     );
 
-    if (selectedIndices == null || !mounted) return;
+    if (participates == null || !mounted) return;
 
     setState(() => _isLoading = true);
     try {
       await _registrationService.saveCollationChoice(
         widget.event.id,
         widget.currentUser!.uid,
-        selectedIndices,
+        participates,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(selectedIndices.isEmpty
-                ? 'Vous ne participez pas à la collation'
-                : 'Choix de collation enregistré !'),
+            content: Text(participates
+                ? 'Participation au repas enregistrée !'
+                : 'Vous ne participez pas au repas'),
             backgroundColor: Colors.green,
           ),
         );
@@ -427,18 +428,72 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: _isUserDeclined
-                    ? _buildDeclinedView()
-                    : _isUserConfirmed
-                        ? _buildConfirmedView()
-                        : _isUserInscribed
-                            ? _buildInscribedView()
-                            : _buildUnregisteredView(),
+                child: widget.event.isFinished
+                    ? _buildFinishedView()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _isUserDeclined
+                              ? _buildDeclinedView()
+                              : _isUserConfirmed
+                                  ? _buildConfirmedView()
+                                  : _isUserInscribed
+                                      ? _buildInscribedView()
+                                      : _buildUnregisteredView(),
+                        ],
+                      ),
               ),
             ),
           );
         },
       ),
+    );
+  }
+
+  // ========================================
+  // ÉTAT: TERMINÉ — vue simplifiée
+  // ========================================
+  Widget _buildFinishedView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Date
+        Text(
+          widget.event.formattedDate,
+          style: TextStyle(
+            fontSize: 12,
+            color: widget.isDark ? Colors.grey[400] : Colors.grey[500],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Titre
+        Text(
+          widget.event.theme,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Badge "Terminé"
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: widget.isDark ? Colors.grey[800] : Colors.grey[200],
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'Terminé',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        ),
+        // Compte-rendu
+        if (widget.event.hasSummary) _buildSummarySection(),
+      ],
     );
   }
 
@@ -828,8 +883,8 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               ),
               label: Text(
                 widget.event.hasUserChosenCollation(widget.currentUser!.uid)
-                    ? 'Modifier mon choix de repas'
-                    : 'Choisir mon repas',
+                    ? 'Modifier ma réponse au repas'
+                    : 'Répondre pour le repas',
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.amber[700],
@@ -957,8 +1012,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
 
         // Bandeau collation si choix effectué
         if (widget.event.hasCollation && widget.currentUser != null &&
-            widget.event.hasUserChosenCollation(widget.currentUser!.uid) &&
-            widget.event.getUserCollationItems(widget.currentUser!.uid).isNotEmpty) ...[
+            widget.event.hasUserChosenCollation(widget.currentUser!.uid)) ...[
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(12),
@@ -975,7 +1029,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Repas réservé - Total : ${widget.event.getUserCollationTotal(widget.currentUser!.uid).toStringAsFixed(2).replaceAll('.', ',')} €',
+                    'Repas réservé',
                     style: TextStyle(
                       color: Colors.amber[widget.isDark ? 300 : 800],
                       fontSize: 12,
@@ -994,6 +1048,123 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
   // ========================================
   // WIDGETS HELPERS
   // ========================================
+
+  // ========================================
+  // COMPTE-RENDU (événement terminé)
+  // ========================================
+  Widget _buildSummarySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Divider(color: widget.isDark ? Colors.grey[700] : Colors.grey[300]),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () => _showSummaryBottomSheet(),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: widget.isDark
+                  ? Colors.teal[900]?.withValues(alpha: 0.3)
+                  : Colors.teal[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: widget.isDark ? Colors.teal[700]! : Colors.teal[200]!,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.summarize_outlined, size: 18, color: Colors.teal[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Voir le compte-rendu',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: widget.isDark ? Colors.teal[300] : Colors.teal[700],
+                  ),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, size: 18, color: Colors.teal[600]),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showSummaryBottomSheet() {
+    final isDark = widget.isDark;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey[900] : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(20),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[600] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(Icons.summarize_outlined, color: Colors.teal[600]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.event.theme,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Compte-rendu de la rencontre',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+              const SizedBox(height: 12),
+              MarkdownBody(
+                data: widget.event.summary!,
+                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildDetailRow(
     BuildContext context,

@@ -403,11 +403,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
           );
         }
 
-        final events = (snapshot.data ?? [])
-            .where((e) => !_readEventIds.contains(e['id']))
-            .toList();
+        final allEvents = snapshot.data ?? [];
 
-        if (events.isEmpty) {
+        if (allEvents.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -434,99 +432,121 @@ class _NotificationsPageState extends State<NotificationsPage> {
           );
         }
 
+        // Non lus en premier (desc), lus en dessous (desc)
+        final unread = allEvents.where((e) => !_readEventIds.contains(e['id'])).toList();
+        final read = allEvents.where((e) => _readEventIds.contains(e['id'])).toList();
+        final sorted = [...unread, ...read];
+
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: events.length,
+          itemCount: sorted.length,
           itemBuilder: (context, index) {
-            final event = events[index];
+            final event = sorted[index];
+            final isRead = _readEventIds.contains(event['id'] as String);
             final eventDate = event['date'] as DateTime;
             final formattedEventDate = DateFormat('dd/MM/yyyy').format(eventDate);
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.blue[100],
-                          ),
-                          child: Icon(
-                            Icons.event,
-                            color: Colors.blue[700],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                event['theme'],
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
+            final iconColor = isRead
+                ? (isDark ? Colors.grey[600]! : Colors.grey[400]!)
+                : Colors.blue[700]!;
+            final iconBgColor = isRead
+                ? (isDark ? Colors.grey[800]! : Colors.grey[200]!)
+                : Colors.blue[100]!;
+            final titleColor = isRead
+                ? (isDark ? Colors.grey[500] : Colors.grey[500])
+                : null;
+
+            return Opacity(
+              opacity: isRead ? 0.6 : 1.0,
+              child: Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: isRead
+                    ? (isDark ? Colors.grey[850] : Colors.grey[100])
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[800] : Colors.grey[100],
-                              borderRadius: BorderRadius.circular(8),
+                              shape: BoxShape.circle,
+                              color: iconBgColor,
                             ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 16,
-                                  color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  formattedEventDate,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                  ),
-                                ),
-                              ],
+                            child: Icon(
+                              isRead ? Icons.event_available : Icons.event,
+                              color: iconColor,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _markAsRead(event['id'] as String),
-                            icon: const Icon(Icons.check, size: 16),
-                            label: const Text('Marquer comme lu'),
-                            style: OutlinedButton.styleFrom(
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              event['theme'],
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                                color: titleColor,
+                              ),
+                            ),
+                          ),
+                          if (isRead)
+                            Icon(Icons.check_circle, size: 18, color: Colors.grey[400]),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                                horizontal: 12,
                                 vertical: 8,
                               ),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.grey[800] : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 16,
+                                    color: isDark ? Colors.grey[300] : Colors.grey[700],
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    formattedEventDate,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: isDark ? Colors.grey[300] : Colors.grey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          if (!isRead) ...[
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _markAsRead(event['id'] as String),
+                                icon: const Icon(Icons.check, size: 16),
+                                label: const Text('Marquer comme lu'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 8,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

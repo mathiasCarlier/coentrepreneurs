@@ -835,11 +835,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Compétences
+                // Coctivités / Compétences
                 TextField(
                   controller: _skillsController,
                   decoration: InputDecoration(
-                    labelText: 'Compétences',
+                    labelText: 'Activités / Compétences',
                     prefixIcon: const Icon(Icons.lightbulb),
                     hintText: 'ex: Gestion, Marketing, Développement...',
                     border: OutlineInputBorder(
@@ -941,7 +941,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 if ((user.skills ?? '').isNotEmpty) ...[
                   _InfoItem(
                     icon: Icons.lightbulb,
-                    label: 'Compétences',
+                    label: 'Activités / Compétences',
                     value: user.skills!,
                     isDark: isDark,
                   ),

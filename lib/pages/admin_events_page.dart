@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/event_service.dart';
@@ -426,9 +427,16 @@ class _EventDetailsSheet extends StatefulWidget {
 
 class _EventDetailsSheetState extends State<_EventDetailsSheet> {
   bool _isToggling = false;
+  late Event _event;
+
+  @override
+  void initState() {
+    super.initState();
+    _event = widget.event;
+  }
 
   Future<void> _toggleEventStatus() async {
-    final newStatus = widget.event.status == EventStatus.pending
+    final newStatus = _event.status == EventStatus.pending
         ? EventStatus.started
         : EventStatus.finished;
 
@@ -466,10 +474,11 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
 
       try {
         await widget.eventService.updateEventStatus(
-          widget.event.id,
+          _event.id,
           newStatus,
         );
         if (mounted) {
+          setState(() => _event = _event.copyWith(status: newStatus));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -514,43 +523,49 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
           child: ListView(
             controller: scrollController,
             children: [
-              // En-tête avec titre et fermeture
+              // Poignée de glissement
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[600] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // En-tête : titre complet + date + bouton fermer
               Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
+                padding: const EdgeInsets.fromLTRB(20, 8, 12, 16),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.event.theme,
-                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _formatDate(widget.event.date),
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.blue[400],
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _event.theme,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            _formatDate(_event.date),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.blue[400],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
                     ),
                   ],
                 ),
@@ -585,7 +600,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                     // Intervenant
                     _DetailSection(
                       title: 'Intervenant',
-                      value: widget.event.intervenant,
+                      value: _event.intervenant,
                       icon: Icons.person_outline,
                       isDark: isDark,
                     ),
@@ -594,7 +609,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                     // Entreprise
                     _DetailSection(
                       title: 'Entreprise',
-                      value: widget.event.entreprise,
+                      value: _event.entreprise,
                       icon: Icons.business_outlined,
                       isDark: isDark,
                     ),
@@ -603,7 +618,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                     // Lieu
                     _DetailSection(
                       title: 'Lieu',
-                      value: widget.event.lieu,
+                      value: _event.lieu,
                       icon: Icons.location_on_outlined,
                       isDark: isDark,
                     ),
@@ -612,21 +627,21 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                     // Capacité et Inscrits
                     _DetailSection(
                       title: 'Capacité',
-                      value: '${widget.event.currentParticipants} / ${widget.event.maxParticipants} participants',
+                      value: '${_event.currentParticipants} / ${_event.maxParticipants} participants',
                       icon: Icons.people_outline,
                       isDark: isDark,
-                      valueColor: widget.event.isFull ? Colors.red : Colors.blue,
+                      valueColor: _event.isFull ? Colors.red : Colors.blue,
                     ),
                     const SizedBox(height: 20),
 
                     // Confirmés si commencé
-                    if (widget.event.isStarted)
+                    if (_event.isStarted)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _DetailSection(
                             title: 'Confirmés',
-                            value: '${widget.event.confirmedParticipants.length} présents',
+                            value: '${_event.confirmedParticipants.length} présents',
                             icon: Icons.check_circle,
                             isDark: isDark,
                             valueColor: Colors.green,
@@ -636,27 +651,27 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                       ),
 
                     // 🎯 SECTION INVITÉS - Affichée quand l'événement est en cours
-                    if (widget.event.isStarted)
+                    if (_event.isStarted)
                       Column(
                         children: [
                           EventGuestsSection(
-                            eventId: widget.event.id,
+                            eventId: _event.id,
                             isDark: isDark,
-                            registeredUserIds: widget.event.registeredUserIds,
+                            registeredUserIds: _event.registeredUserIds,
                           ),
                           const SizedBox(height: 20),
                         ],
                       ),
 
                     // Liste des participants
-                    if (widget.event.registeredUserIds.isNotEmpty)
+                    if (_event.registeredUserIds.isNotEmpty)
                       _ParticipantsSection(
-                        userIds: widget.event.registeredUserIds,
-                        confirmedIds: widget.event.confirmedParticipants,
+                        userIds: _event.registeredUserIds,
+                        confirmedIds: _event.confirmedParticipants,
                         isDark: isDark,
                       ),
 
-                    if (widget.event.registeredUserIds.isEmpty)
+                    if (_event.registeredUserIds.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Center(
@@ -672,62 +687,127 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
 
                     const SizedBox(height: 24),
 
+                    // Section compte-rendu (événement terminé)
+                    if (_event.isFinished) ...[
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Icon(Icons.summarize_outlined, size: 20, color: Colors.teal[600]),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Compte-rendu',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.grey[200] : Colors.grey[900],
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () => _showSummaryDialog(isDark),
+                            icon: Icon(
+                              _event.hasSummary ? Icons.edit_outlined : Icons.add,
+                              size: 16,
+                            ),
+                            label: Text(_event.hasSummary ? 'Modifier' : 'Rédiger'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (_event.hasSummary)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[850] : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                            ),
+                          ),
+                          child: MarkdownBody(
+                            data: _event.summary!,
+                            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[850] : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: Text(
+                            'Aucun compte-rendu rédigé.',
+                            style: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: isDark ? Colors.grey[500] : Colors.grey[500],
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                    ],
+
                     // Boutons d'action
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Bouton de contrôle d'état
-                        ElevatedButton.icon(
-                          onPressed: _isToggling ? null : _toggleEventStatus,
-                          icon: _isToggling
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                        // Bouton de contrôle d'état (masqué si terminé)
+                        if (!_event.isFinished)
+                          ElevatedButton.icon(
+                            onPressed: _isToggling ? null : _toggleEventStatus,
+                            icon: _isToggling
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                    ),
+                                  )
+                                : Icon(
+                                    _event.status == EventStatus.pending
+                                        ? Icons.play_arrow
+                                        : Icons.stop_circle,
                                   ),
-                                )
-                              : Icon(
-                                  widget.event.status == EventStatus.pending
-                                      ? Icons.play_arrow
-                                      : Icons.stop_circle,
-                                ),
-                          label: Text(
-                            widget.event.status == EventStatus.pending
-                                ? '▶️ Démarrer l\'événement'
-                                : widget.event.status == EventStatus.started
-                                    ? '⏹️ Terminer l\'événement'
-                                    : 'Événement terminé',
+                            label: Text(
+                              _event.status == EventStatus.pending
+                                  ? '▶️ Démarrer l\'événement'
+                                  : '⏹️ Terminer l\'événement',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _event.status == EventStatus.pending
+                                  ? Colors.purple[600]
+                                  : Colors.orange[600],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: widget.event.status == EventStatus.pending
-                                ? Colors.purple[600]
-                                : widget.event.status == EventStatus.started
-                                    ? Colors.orange[600]
-                                    : Colors.grey[600],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Autres actions
+                        if (!_event.isFinished) const SizedBox(height: 12),
+
+                        // Modifier (désactivé si terminé) + Supprimer
                         Row(
                           children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: widget.onEdit,
-                                icon: const Icon(Icons.edit),
-                                label: const Text('Modifier'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue[600],
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                            if (!_event.isFinished)
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: widget.onEdit,
+                                  icon: const Icon(Icons.edit),
+                                  label: const Text('Modifier'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[600],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
+                            if (!_event.isFinished) const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: widget.onDelete,
@@ -754,8 +834,38 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
     );
   }
 
+  Future<void> _showSummaryDialog(bool isDark) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => _SummaryDialog(
+        initialSummary: _event.summary ?? '',
+        isDark: isDark,
+      ),
+    );
+    if (result != null && mounted) {
+      try {
+        await widget.eventService.updateEventSummary(_event.id, result);
+        setState(() => _event = _event.copyWith(summary: result));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Compte-rendu enregistré'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ Erreur: $e')),
+          );
+        }
+      }
+    }
+  }
+
   String _getStatusLabel() {
-    switch (widget.event.status) {
+    switch (_event.status) {
       case EventStatus.pending:
         return 'En attente';
       case EventStatus.started:
@@ -763,6 +873,101 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
       case EventStatus.finished:
         return 'Terminé';
     }
+  }
+}
+
+// Dialog pour rédiger/modifier le compte-rendu en Markdown
+class _SummaryDialog extends StatefulWidget {
+  final String initialSummary;
+  final bool isDark;
+
+  const _SummaryDialog({required this.initialSummary, required this.isDark});
+
+  @override
+  State<_SummaryDialog> createState() => _SummaryDialogState();
+}
+
+class _SummaryDialogState extends State<_SummaryDialog> {
+  late TextEditingController _controller;
+  bool _preview = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialSummary);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.summarize_outlined, color: Colors.teal[600]),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Compte-rendu')),
+          TextButton(
+            onPressed: () => setState(() => _preview = !_preview),
+            child: Text(_preview ? 'Éditer' : 'Aperçu'),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: _preview
+            ? Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[850] : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: MarkdownBody(
+                    data: _controller.text.isEmpty
+                        ? '_Aucun contenu à prévisualiser_'
+                        : _controller.text,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+                  ),
+                ),
+              )
+            : TextField(
+                controller: _controller,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: InputDecoration(
+                  hintText: '# Titre\n\n- Point 1\n- Point 2\n\n**Conclusion** ...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Enregistrer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal[600],
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1075,7 +1280,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
 
   // Collation
   bool _hasCollation = false;
-  final List<_MenuItemEntry> _menuItems = [];
+  late TextEditingController _menuController;
 
   @override
   void initState() {
@@ -1090,15 +1295,8 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     _selectedDate = widget.event?.date ?? DateTime.now();
 
     // Pré-remplir la collation si édition
-    if (widget.event?.hasCollation == true) {
-      _hasCollation = true;
-      for (final item in widget.event!.collationMenu!) {
-        _menuItems.add(_MenuItemEntry(
-          nom: item.nom,
-          prix: item.prix.toStringAsFixed(2),
-        ));
-      }
-    }
+    _hasCollation = widget.event?.hasCollation ?? false;
+    _menuController = TextEditingController(text: widget.event?.collationMenuText ?? '');
   }
 
   @override
@@ -1108,9 +1306,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     _entrepriseController.dispose();
     _lieuController.dispose();
     _maxParticipantsController.dispose();
-    for (final item in _menuItems) {
-      item.dispose();
-    }
+    _menuController.dispose();
     super.dispose();
   }
 
@@ -1143,26 +1339,14 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     }
 
     // Validation collation
-    List<CollationItem>? collationMenu;
+    String? collationMenuText;
     if (_hasCollation) {
-      collationMenu = [];
-      for (int i = 0; i < _menuItems.length; i++) {
-        final nom = _menuItems[i].nomController.text.trim();
-        final prix = double.tryParse(_menuItems[i].prixController.text.trim().replaceAll(',', '.'));
-        if (nom.isEmpty) {
-          setState(() => _error = 'Nom du plat ${i + 1} manquant');
-          return;
-        }
-        if (prix == null || prix < 0) {
-          setState(() => _error = 'Prix invalide pour le plat ${i + 1}');
-          return;
-        }
-        collationMenu.add(CollationItem(nom: nom, prix: prix));
-      }
-      if (collationMenu.isEmpty) {
-        setState(() => _error = 'Ajoutez au moins un plat au menu');
+      final menuText = _menuController.text.trim();
+      if (menuText.isEmpty) {
+        setState(() => _error = 'Décrivez le menu proposé');
         return;
       }
+      collationMenuText = menuText;
     }
 
     setState(() {
@@ -1182,8 +1366,8 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         registeredUserIds: widget.event?.registeredUserIds ?? [],
         confirmedParticipants: widget.event?.confirmedParticipants ?? [],
         declinedUserIds: widget.event?.declinedUserIds ?? [],
-        collationMenu: collationMenu,
-        collationParticipants: widget.event?.collationParticipants ?? {},
+        collationMenuText: collationMenuText,
+        collationParticipants: widget.event?.collationParticipants ?? [],
         status: widget.event?.status ?? EventStatus.pending,
       );
 
@@ -1197,7 +1381,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
               .collection('events')
               .doc(widget.event!.id)
               .update({
-            'collationMenu': FieldValue.delete(),
+            'collationMenuText': FieldValue.delete(),
             'collationParticipants': FieldValue.delete(),
           });
         }
@@ -1301,74 +1485,26 @@ class _EventFormDialogState extends State<_EventFormDialog> {
             // Section Collation
             SwitchListTile(
               title: const Text('Collation / Repas'),
-              subtitle: const Text('Proposer un menu aux participants'),
+              subtitle: const Text('Proposer un repas aux participants'),
               value: _hasCollation,
               contentPadding: EdgeInsets.zero,
               onChanged: _isLoading ? null : (val) {
-                setState(() {
-                  _hasCollation = val;
-                  if (val && _menuItems.isEmpty) {
-                    _menuItems.add(_MenuItemEntry());
-                  }
-                });
+                setState(() => _hasCollation = val);
               },
             ),
             if (_hasCollation) ...[
               const SizedBox(height: 8),
-              ...List.generate(_menuItems.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
-                          controller: _menuItems[index].nomController,
-                          enabled: !_isLoading,
-                          decoration: InputDecoration(
-                            labelText: 'Plat ${index + 1}',
-                            hintText: 'Nom du plat',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: _menuItems[index].prixController,
-                          enabled: !_isLoading,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'Prix (€)',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                        onPressed: _isLoading ? null : () {
-                          setState(() {
-                            _menuItems[index].dispose();
-                            _menuItems.removeAt(index);
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              }),
-              TextButton.icon(
-                onPressed: _isLoading ? null : () {
-                  setState(() => _menuItems.add(_MenuItemEntry()));
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Ajouter un plat'),
+              TextField(
+                controller: _menuController,
+                enabled: !_isLoading,
+                minLines: 2,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  labelText: 'Description du menu',
+                  hintText: 'Ex : Salade, poulet rôti, dessert du jour...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  alignLabelWithHint: true,
+                ),
               ),
             ],
             if (_error != null) ...[
@@ -1409,16 +1545,3 @@ class _EventFormDialogState extends State<_EventFormDialog> {
   }
 }
 
-class _MenuItemEntry {
-  final TextEditingController nomController;
-  final TextEditingController prixController;
-
-  _MenuItemEntry({String nom = '', String prix = ''})
-      : nomController = TextEditingController(text: nom),
-        prixController = TextEditingController(text: prix);
-
-  void dispose() {
-    nomController.dispose();
-    prixController.dispose();
-  }
-}

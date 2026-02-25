@@ -36,7 +36,7 @@ class RegistrationService {
       await _firestore.collection('events').doc(eventId).update({
         'registeredUserIds': FieldValue.arrayRemove([userId]),
         'confirmedParticipants': FieldValue.arrayRemove([userId]),
-        'collationParticipants.$userId': FieldValue.delete(),
+        'collationParticipants': FieldValue.arrayRemove([userId]),
       });
     } catch (e) {
       throw Exception('Erreur lors de la désinscription: $e');
@@ -50,7 +50,7 @@ class RegistrationService {
         'declinedUserIds': FieldValue.arrayUnion([userId]),
         'registeredUserIds': FieldValue.arrayRemove([userId]),
         'confirmedParticipants': FieldValue.arrayRemove([userId]),
-        'collationParticipants.$userId': FieldValue.delete(),
+        'collationParticipants': FieldValue.arrayRemove([userId]),
       });
     } catch (e) {
       throw Exception('Erreur lors du refus: $e');
@@ -72,11 +72,13 @@ class RegistrationService {
   // 🍽️ COLLATION
   // ========================================
 
-  /// Enregistrer le choix de collation d'un utilisateur
-  Future<void> saveCollationChoice(String eventId, String userId, List<int> selectedIndices) async {
+  /// Enregistrer le choix de collation d'un utilisateur (oui = true, non = false)
+  Future<void> saveCollationChoice(String eventId, String userId, bool participates) async {
     try {
       await _firestore.collection('events').doc(eventId).update({
-        'collationParticipants.$userId': selectedIndices,
+        'collationParticipants': participates
+            ? FieldValue.arrayUnion([userId])
+            : FieldValue.arrayRemove([userId]),
       });
     } catch (e) {
       throw Exception('Erreur lors de l\'enregistrement du choix de collation: $e');
@@ -87,7 +89,7 @@ class RegistrationService {
   Future<void> removeCollationChoice(String eventId, String userId) async {
     try {
       await _firestore.collection('events').doc(eventId).update({
-        'collationParticipants.$userId': FieldValue.delete(),
+        'collationParticipants': FieldValue.arrayRemove([userId]),
       });
     } catch (e) {
       throw Exception('Erreur lors de la suppression du choix de collation: $e');
