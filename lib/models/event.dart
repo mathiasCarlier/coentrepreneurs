@@ -34,6 +34,11 @@ class Event {
   final List<String> collationParticipants;  // userId ayant dit "oui" au repas
   final EventStatus status;                  // État de l'événement
   final String? summary;                     // Compte-rendu en Markdown (null = pas encore rédigé)
+  final String? description;                 // Description/détails de la rencontre
+  final String? linkUrl;                     // Lien externe optionnel
+  final String? imageUrl;                    // URL image Firebase Storage
+  final String? fileUrl;                     // URL fichier Firebase Storage
+  final String? fileName;                    // Nom d'origine du fichier
 
   Event({
     required this.id,
@@ -50,6 +55,11 @@ class Event {
     this.collationParticipants = const [],
     this.status = EventStatus.pending,
     this.summary,
+    this.description,
+    this.linkUrl,
+    this.imageUrl,
+    this.fileUrl,
+    this.fileName,
   });
 
   // ✅ Getters pour simplifier le code
@@ -117,6 +127,19 @@ class Event {
     if (summary != null && summary!.isNotEmpty) {
       map['summary'] = summary;
     }
+    if (description != null && description!.isNotEmpty) {
+      map['description'] = description;
+    }
+    if (linkUrl != null && linkUrl!.isNotEmpty) {
+      map['linkUrl'] = linkUrl;
+    }
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      map['imageUrl'] = imageUrl;
+    }
+    if (fileUrl != null && fileUrl!.isNotEmpty) {
+      map['fileUrl'] = fileUrl;
+      if (fileName != null) map['fileName'] = fileName;
+    }
     return map;
   }
 
@@ -136,6 +159,11 @@ class Event {
       collationParticipants: List<String>.from(map['collationParticipants'] ?? []),
       status: _statusFromString(map['status'] ?? 'pending'),
       summary: map['summary'] as String?,
+      description: map['description'] as String?,
+      linkUrl: map['linkUrl'] as String?,
+      imageUrl: map['imageUrl'] as String?,
+      fileUrl: map['fileUrl'] as String?,
+      fileName: map['fileName'] as String?,
     );
   }
 
@@ -167,6 +195,16 @@ class Event {
     EventStatus? status,
     String? summary,
     bool clearSummary = false,
+    String? description,
+    bool clearDescription = false,
+    String? linkUrl,
+    bool clearLinkUrl = false,
+    String? imageUrl,
+    bool clearImageUrl = false,
+    String? fileUrl,
+    bool clearFileUrl = false,
+    String? fileName,
+    bool clearFileName = false,
   }) {
     return Event(
       id: id ?? this.id,
@@ -183,6 +221,11 @@ class Event {
       collationParticipants: collationParticipants ?? this.collationParticipants,
       status: status ?? this.status,
       summary: clearSummary ? null : (summary ?? this.summary),
+      description: clearDescription ? null : (description ?? this.description),
+      linkUrl: clearLinkUrl ? null : (linkUrl ?? this.linkUrl),
+      imageUrl: clearImageUrl ? null : (imageUrl ?? this.imageUrl),
+      fileUrl: clearFileUrl ? null : (fileUrl ?? this.fileUrl),
+      fileName: clearFileName ? null : (fileName ?? this.fileName),
     );
   }
 }

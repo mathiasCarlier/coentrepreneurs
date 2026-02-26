@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
@@ -623,6 +627,173 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                       isDark: isDark,
                     ),
                     const SizedBox(height: 20),
+
+                    // Description (optionnel)
+                    if (_event.description != null && _event.description!.isNotEmpty) ...[
+                      _DetailSection(
+                        title: 'Description',
+                        value: _event.description!,
+                        icon: Icons.notes_outlined,
+                        isDark: isDark,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Lien (optionnel)
+                    if (_event.linkUrl != null && _event.linkUrl!.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.link, size: 24, color: Colors.blue[600]),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Lien',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                InkWell(
+                                  onTap: () async {
+                                    final uri = Uri.tryParse(_event.linkUrl!);
+                                    if (uri != null && await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: Text(
+                                    _event.linkUrl!,
+                                    style: TextStyle(
+                                      color: Colors.blue[600],
+                                      decoration: TextDecoration.underline,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Image (optionnel)
+                    if (_event.imageUrl != null && _event.imageUrl!.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.image_outlined, size: 24, color: Colors.blue[600]),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Photo',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                GestureDetector(
+                                  onTap: () async {
+                                    final uri = Uri.tryParse(_event.imageUrl!);
+                                    if (uri != null && await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      _event.imageUrl!,
+                                      height: 180,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => Container(
+                                        height: 60,
+                                        color: Colors.grey[200],
+                                        child: const Center(child: Icon(Icons.broken_image)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // Fichier (optionnel)
+                    if (_event.fileUrl != null && _event.fileUrl!.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.attach_file, size: 24, color: Colors.blue[600]),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Fichier',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                InkWell(
+                                  onTap: () async {
+                                    final uri = Uri.tryParse(_event.fileUrl!);
+                                    if (uri != null && await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.orange[200]!),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _event.fileName ?? 'Télécharger le fichier',
+                                            style: const TextStyle(fontSize: 13),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Icon(Icons.download, size: 18, color: Colors.orange[700]),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
 
                     // Capacité et Inscrits
                     _DetailSection(
@@ -1282,6 +1453,18 @@ class _EventFormDialogState extends State<_EventFormDialog> {
   bool _hasCollation = false;
   late TextEditingController _menuController;
 
+  // Champs optionnels
+  late TextEditingController _descriptionController;
+  late TextEditingController _linkController;
+  Uint8List? _imageBytes;
+  String? _imageExtension;
+  PlatformFile? _pickedFile;
+
+  // URLs existantes (édition)
+  String? _existingImageUrl;
+  String? _existingFileUrl;
+  String? _existingFileName;
+
   @override
   void initState() {
     super.initState();
@@ -1297,6 +1480,13 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     // Pré-remplir la collation si édition
     _hasCollation = widget.event?.hasCollation ?? false;
     _menuController = TextEditingController(text: widget.event?.collationMenuText ?? '');
+
+    // Pré-remplir les champs optionnels si édition
+    _descriptionController = TextEditingController(text: widget.event?.description ?? '');
+    _linkController = TextEditingController(text: widget.event?.linkUrl ?? '');
+    _existingImageUrl = widget.event?.imageUrl;
+    _existingFileUrl = widget.event?.fileUrl;
+    _existingFileName = widget.event?.fileName;
   }
 
   @override
@@ -1307,7 +1497,38 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     _lieuController.dispose();
     _maxParticipantsController.dispose();
     _menuController.dispose();
+    _descriptionController.dispose();
+    _linkController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final ext = picked.name.split('.').last;
+    setState(() {
+      _imageBytes = bytes;
+      _imageExtension = ext;
+      _existingImageUrl = null; // remplace l'ancienne image
+    });
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    if (result == null || result.files.isEmpty) return;
+    setState(() {
+      _pickedFile = result.files.first;
+      _existingFileUrl = null;
+      _existingFileName = null;
+    });
+  }
+
+  Future<String> _uploadBytes(Uint8List bytes, String path) async {
+    final ref = FirebaseStorage.instance.ref().child(path);
+    await ref.putData(bytes);
+    return await ref.getDownloadURL();
   }
 
   Future<void> _pickDate() async {
@@ -1355,6 +1576,29 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     });
 
     try {
+      // Upload image si nouvelle sélection
+      String? imageUrl = _existingImageUrl;
+      if (_imageBytes != null) {
+        final ts = DateTime.now().millisecondsSinceEpoch;
+        final ext = _imageExtension ?? 'jpg';
+        imageUrl = await _uploadBytes(
+          _imageBytes!,
+          'events_attachments/$ts.$ext',
+        );
+      }
+
+      // Upload fichier si nouvelle sélection
+      String? fileUrl = _existingFileUrl;
+      String? fileName = _existingFileName;
+      if (_pickedFile != null && _pickedFile!.bytes != null) {
+        final ts = DateTime.now().millisecondsSinceEpoch;
+        fileName = _pickedFile!.name;
+        fileUrl = await _uploadBytes(
+          _pickedFile!.bytes!,
+          'events_attachments/${ts}_$fileName',
+        );
+      }
+
       final event = Event(
         id: widget.event?.id ?? '',
         date: _selectedDate,
@@ -1369,21 +1613,45 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         collationMenuText: collationMenuText,
         collationParticipants: widget.event?.collationParticipants ?? [],
         status: widget.event?.status ?? EventStatus.pending,
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        linkUrl: _linkController.text.trim().isEmpty
+            ? null
+            : _linkController.text.trim(),
+        imageUrl: imageUrl,
+        fileUrl: fileUrl,
+        fileName: fileName,
       );
 
       if (widget.event == null) {
         await widget.eventService.createEvent(event);
       } else {
         await widget.eventService.updateEvent(widget.event!.id, event);
-        // Si la collation a été désactivée, nettoyer les champs Firestore
+        // Nettoyer les champs Firestore supprimés
+        final toDelete = <String, dynamic>{};
         if (!_hasCollation && widget.event!.hasCollation) {
+          toDelete['collationMenuText'] = FieldValue.delete();
+          toDelete['collationParticipants'] = FieldValue.delete();
+        }
+        if (imageUrl == null && widget.event!.imageUrl != null) {
+          toDelete['imageUrl'] = FieldValue.delete();
+        }
+        if (fileUrl == null && widget.event!.fileUrl != null) {
+          toDelete['fileUrl'] = FieldValue.delete();
+          toDelete['fileName'] = FieldValue.delete();
+        }
+        if (_descriptionController.text.trim().isEmpty && widget.event!.description != null) {
+          toDelete['description'] = FieldValue.delete();
+        }
+        if (_linkController.text.trim().isEmpty && widget.event!.linkUrl != null) {
+          toDelete['linkUrl'] = FieldValue.delete();
+        }
+        if (toDelete.isNotEmpty) {
           await FirebaseFirestore.instance
               .collection('events')
               .doc(widget.event!.id)
-              .update({
-            'collationMenuText': FieldValue.delete(),
-            'collationParticipants': FieldValue.delete(),
-          });
+              .update(toDelete);
         }
       }
 
@@ -1507,6 +1775,206 @@ class _EventFormDialogState extends State<_EventFormDialog> {
                 ),
               ),
             ],
+
+            const SizedBox(height: 4),
+            const Divider(),
+            // Section pièces jointes et description (optionnel)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.attach_file, size: 18, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Informations supplémentaires (optionnel)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Description
+            TextField(
+              controller: _descriptionController,
+              enabled: !_isLoading,
+              minLines: 2,
+              maxLines: 6,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                hintText: 'Détails sur la rencontre, programme...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Lien
+            TextField(
+              controller: _linkController,
+              enabled: !_isLoading,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: 'Lien',
+                hintText: 'https://...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                prefixIcon: const Icon(Icons.link, size: 20),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Photo
+            if (_imageBytes != null) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      _imageBytes!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _imageBytes = null;
+                        _imageExtension = null;
+                      }),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ] else if (_existingImageUrl != null) ...[
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      _existingImageUrl!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _existingImageUrl = null),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : _pickImage,
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: Text(
+                  (_imageBytes != null || _existingImageUrl != null)
+                      ? 'Changer la photo'
+                      : 'Ajouter une photo',
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Fichier
+            if (_pickedFile != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.insert_drive_file, color: Colors.orange[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _pickedFile!.name,
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _pickedFile = null),
+                      child: Icon(Icons.close, size: 18, color: Colors.orange[700]),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ] else if (_existingFileUrl != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.insert_drive_file, color: Colors.orange[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _existingFileName ?? 'Fichier existant',
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _existingFileUrl = null;
+                        _existingFileName = null;
+                      }),
+                      child: Icon(Icons.close, size: 18, color: Colors.orange[700]),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : _pickFile,
+                icon: const Icon(Icons.attach_file, size: 18),
+                label: Text(
+                  (_pickedFile != null || _existingFileUrl != null)
+                      ? 'Changer le fichier'
+                      : 'Ajouter un fichier',
+                ),
+              ),
+            ),
+
             if (_error != null) ...[
               const SizedBox(height: 12),
               Container(
