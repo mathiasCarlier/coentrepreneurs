@@ -108,6 +108,11 @@ class AuthService {
       try {
         final userData = await _getUserData(result.user!.uid);
         if (userData != null) {
+          // Vérifier si l'utilisateur est bloqué
+          if (userData['blocked'] == true) {
+            await _auth.signOut();
+            throw 'Votre accès à l\'application a été bloqué par un administrateur.';
+          }
           return user_model.User(
             uid: result.user!.uid,
             email: result.user!.email ?? '',
@@ -120,6 +125,7 @@ class AuthService {
       } catch (e) {
         debugPrint('Impossible de récupérer les données Firestore: $e');
         // Retourner un utilisateur minimal si Firestore est indisponible
+        rethrow;
       }
 
       return user_model.User(

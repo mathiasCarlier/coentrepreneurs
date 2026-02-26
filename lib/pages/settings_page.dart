@@ -1,6 +1,7 @@
 // pages/settings_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
@@ -337,6 +338,235 @@ class _SettingsPageState extends State<SettingsPage> {
         },
       ),
     );
+  }
+
+  Future<void> _showChangePasswordDialog(BuildContext context) async {
+    final currentPwdCtrl = TextEditingController();
+    final newPwdCtrl = TextEditingController();
+    final confirmPwdCtrl = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    String? errorMessage;
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final isDark =
+              Theme.of(dialogContext).brightness == Brightness.dark;
+
+          Future<void> submit() async {
+            final currentPwd = currentPwdCtrl.text.trim();
+            final newPwd = newPwdCtrl.text.trim();
+            final confirmPwd = confirmPwdCtrl.text.trim();
+
+            if (currentPwd.isEmpty || newPwd.isEmpty || confirmPwd.isEmpty) {
+              setDialogState(
+                  () => errorMessage = 'Veuillez remplir tous les champs.');
+              return;
+            }
+            if (newPwd.length < 6) {
+              setDialogState(() => errorMessage =
+                  'Le nouveau mot de passe doit contenir au moins 6 caractères.');
+              return;
+            }
+            if (newPwd != confirmPwd) {
+              setDialogState(() =>
+                  errorMessage = 'Les mots de passe ne correspondent pas.');
+              return;
+            }
+
+            setDialogState(() {
+              isLoading = true;
+              errorMessage = null;
+            });
+
+            try {
+              final firebaseUser =
+                  firebase_auth.FirebaseAuth.instance.currentUser;
+              if (firebaseUser == null || firebaseUser.email == null) {
+                throw 'Utilisateur non connecté.';
+              }
+
+              // Ré-authentification obligatoire avant changement de mot de passe
+              final credential =
+                  firebase_auth.EmailAuthProvider.credential(
+                email: firebaseUser.email!,
+                password: currentPwd,
+              );
+              await firebaseUser.reauthenticateWithCredential(credential);
+
+              // Mise à jour du mot de passe
+              await firebaseUser.updatePassword(newPwd);
+
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop();
+              }
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Mot de passe modifié avec succès'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            } on firebase_auth.FirebaseAuthException catch (e) {
+              String msg;
+              switch (e.code) {
+                case 'wrong-password':
+                case 'invalid-credential':
+                  msg = 'Mot de passe actuel incorrect.';
+                  break;
+                case 'weak-password':
+                  msg = 'Le nouveau mot de passe est trop faible.';
+                  break;
+                case 'too-many-requests':
+                  msg = 'Trop de tentatives. Réessayez plus tard.';
+                  break;
+                default:
+                  msg = 'Erreur : ${e.message ?? e.code}';
+              }
+              setDialogState(() => errorMessage = msg);
+            } catch (e) {
+              setDialogState(() => errorMessage = 'Erreur : $e');
+            } finally {
+              setDialogState(() => isLoading = false);
+            }
+          }
+
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.lock_outline, size: 22),
+                SizedBox(width: 10),
+                Text('Modifier le mot de passe'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Mot de passe actuel
+                  TextField(
+                    controller: currentPwdCtrl,
+                    obscureText: obscureCurrent,
+                    enabled: !isLoading,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe actuel',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureCurrent
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () => setDialogState(
+                            () => obscureCurrent = !obscureCurrent),
+                      ),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor:
+                          isDark ? Colors.grey[800] : Colors.grey[50],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Nouveau mot de passe
+                  TextField(
+                    controller: newPwdCtrl,
+                    obscureText: obscureNew,
+                    enabled: !isLoading,
+                    decoration: InputDecoration(
+                      labelText: 'Nouveau mot de passe',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureNew
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () =>
+                            setDialogState(() => obscureNew = !obscureNew),
+                      ),
+                      helperText: 'Minimum 6 caractères',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor:
+                          isDark ? Colors.grey[800] : Colors.grey[50],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Confirmation
+                  TextField(
+                    controller: confirmPwdCtrl,
+                    obscureText: obscureConfirm,
+                    enabled: !isLoading,
+                    onSubmitted: (_) => submit(),
+                    decoration: InputDecoration(
+                      labelText: 'Confirmer le nouveau mot de passe',
+                      prefixIcon: const Icon(Icons.lock_clock),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirm
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () => setDialogState(
+                            () => obscureConfirm = !obscureConfirm),
+                      ),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor:
+                          isDark ? Colors.grey[800] : Colors.grey[50],
+                    ),
+                  ),
+                  // Message d'erreur
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        border: Border.all(color: Colors.red),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        errorMessage!,
+                        style: const TextStyle(
+                            color: Colors.red, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                  if (isLoading) ...[
+                    const SizedBox(height: 14),
+                    const LinearProgressIndicator(),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed:
+                    isLoading ? null : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: isLoading ? null : submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Modifier'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    currentPwdCtrl.dispose();
+    newPwdCtrl.dispose();
+    confirmPwdCtrl.dispose();
   }
 
   @override
@@ -1015,14 +1245,7 @@ class _SettingsPageState extends State<SettingsPage> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fonctionnalité à venir'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
+            onTap: () => _showChangePasswordDialog(context),
           ),
           const Divider(),
           ListTile(

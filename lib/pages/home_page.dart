@@ -1,4 +1,5 @@
 // pages/home_page.dart - VERSION AVEC NOTIFICATIONS
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +22,11 @@ import 'package:coentrepreneurs/pages/faq_page.dart';
 import 'package:coentrepreneurs/pages/directory_page_dynamic.dart';
 import 'package:coentrepreneurs/pages/notifications_page.dart';
 import 'package:coentrepreneurs/pages/all_events_page.dart';
+import 'package:coentrepreneurs/pages/admin_users_page.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
 
 
 class HomePage extends StatefulWidget {
@@ -36,11 +42,46 @@ class _HomePageState extends State<HomePage> {
   bool _cguCheckCompleted = false;
   bool _userAcceptedCGU = false;
 
+  StreamSubscription<DocumentSnapshot>? _blockedSub;
+  String? _listenedUid;
+
   @override
   void initState() {
     super.initState();
     _checkAndHandleCGU();
     _initializeDefaultEvents();
+  }
+
+  @override
+  void dispose() {
+    _blockedSub?.cancel();
+    super.dispose();
+  }
+
+  /// Démarre un listener Firestore temps réel pour détecter un blocage admin.
+  void _startBlockedListener(String uid) {
+    if (_listenedUid == uid) return;
+    _blockedSub?.cancel();
+    _listenedUid = uid;
+    _blockedSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen((doc) {
+      if (doc.data()?['blocked'] == true && mounted) {
+        _blockedSub?.cancel();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Votre accès a été bloqué par un administrateur.',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        Future.delayed(const Duration(seconds: 1), _logout);
+      }
+    });
   }
 
   Future<void> _initializeDefaultEvents() async {
@@ -74,12 +115,19 @@ class _HomePageState extends State<HomePage> {
         onAccepted: () async {
           try {
             await _cguService.acceptCGU(userId);
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .update({'approvalStatus': 'pending'});
             if (mounted) {
               setState(() => _userAcceptedCGU = true);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Conditions acceptées avec succès'),
-                  backgroundColor: Colors.green,
+                  content: Text(
+                    'Votre demande d\'adhésion est en attente de validation par un administrateur.',
+                  ),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 5),
                 ),
               );
             }
@@ -134,82 +182,62 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Stream pour compter les nouvelles adhésions (adhérents uniquement, pas invités)
-  Stream<int> _getNewAdherentsCount() {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .where('role', isEqualTo: 'UserRole.adherent')
-        .snapshots()
-        .map((snapshot) {
-      final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
-      return snapshot.docs
-          .where((doc) {
-            final data = doc.data() as Map<String, dynamic>? ?? {};
-            final createdAt = data['createdAt'] as Timestamp?;
-            if (createdAt == null) return false;
-            return createdAt.toDate().isAfter(oneDayAgo);
-          })
-          .length;
-    });
-  }
-
-  // Stream pour compter les nouveaux événements créés aujourd'hui
-  Stream<int> _getNewEventsCount() {
-    final today = DateTime.now();
-    final todayStart = DateTime(today.year, today.month, today.day);
-    
-    return FirebaseFirestore.instance
-        .collection('events')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .where((doc) {
-            final data = doc.data();
-            final createdAt = data['createdAt'] as Timestamp?;
-            if (createdAt == null) return false;
-            final createdDate = DateTime(
-              createdAt.toDate().year,
-              createdAt.toDate().month,
-              createdAt.toDate().day,
-            );
-            return createdDate.isAtSameMomentAs(todayStart) || createdDate.isAfter(todayStart);
-          })
-          .length;
-    });
-  }
-
   // Stream combiné pour le badge total
   Stream<int> _getTotalNotificationsCount() {
     return FirebaseFirestore.instance.collection('users').snapshots().asyncMap((_) async {
-      final adherents = await FirebaseFirestore.instance
-          .collection('users')
-          .where('role', isEqualTo: 'UserRole.adherent')
-          .get();
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return 0;
 
-      final oneDayAgo = DateTime.now().subtract(const Duration(days: 1));
-      final adherentsCount = adherents.docs
-          .where((doc) {
-            final data = doc.data();
-            final createdAt = data['createdAt'] as Timestamp?;
-            if (createdAt == null) return false;
-            return createdAt.toDate().isAfter(oneDayAgo);
-          })
-          .length;
+      // Récupérer les données de l'utilisateur courant (rôle + IDs lus)
+      final currentUserDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final currentUserData = currentUserDoc.data() ?? {};
+      final role = currentUserData['role'] as String? ?? '';
+      final isAdmin = role == 'admin' || role.contains('admin');
+
+      Set<String> readIds = {};
+      Set<String> readMessageIds = {};
+      final eventIds = currentUserData['readNotificationEventIds'];
+      if (eventIds is List) readIds = eventIds.cast<String>().toSet();
+      final msgIds = currentUserData['readNotificationMessageIds'];
+      if (msgIds is List) readMessageIds = msgIds.cast<String>().toSet();
+
+      // Compter les adhésions selon le rôle
+      int adherentsCount = 0;
+      if (isAdmin) {
+        // Admin : nombre de demandes d'adhésion en attente
+        final pending = await FirebaseFirestore.instance
+            .collection('users')
+            .where('approvalStatus', isEqualTo: 'pending')
+            .get();
+        adherentsCount = pending.docs.length;
+      } else {
+        // Utilisateur : nouveaux membres approuvés (7 derniers jours) non vus
+        final readMemberIds = currentUserData['readNewMemberIds'];
+        final Set<String> readMemberIdSet = {};
+        if (readMemberIds is List) {
+          readMemberIdSet.addAll(readMemberIds.cast<String>());
+        }
+        final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+        final approvedMembers = await FirebaseFirestore.instance
+            .collection('users')
+            .where('approvalStatus', isEqualTo: 'approved')
+            .get();
+        adherentsCount = approvedMembers.docs
+            .where((doc) {
+              if (doc.id == uid) return false;
+              if (readMemberIdSet.contains(doc.id)) return false;
+              final approvedAt = doc.data()['approvedAt'] as Timestamp?;
+              if (approvedAt == null) return false;
+              return approvedAt.toDate().isAfter(sevenDaysAgo);
+            })
+            .length;
+      }
 
       final today = DateTime.now();
       final todayStart = DateTime(today.year, today.month, today.day);
-      
-      // Récupérer les IDs déjà marqués comme lus par l'utilisateur courant
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      Set<String> readIds = {};
-      if (uid != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .get();
-        final ids = userDoc.data()?['readNotificationEventIds'];
-        if (ids is List) readIds = ids.cast<String>().toSet();
-      }
 
       final events = await FirebaseFirestore.instance
           .collection('events')
@@ -241,7 +269,16 @@ class _HomePageState extends State<HomePage> {
           })
           .length;
 
-      return adherentsCount + eventsCount;
+      final publishedMessages = await FirebaseFirestore.instance
+          .collection('messages')
+          .where('published', isEqualTo: true)
+          .get();
+
+      final messagesCount = publishedMessages.docs
+          .where((doc) => !readMessageIds.contains(doc.id))
+          .length;
+
+      return adherentsCount + eventsCount + messagesCount;
     });
   }
 
@@ -326,10 +363,11 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             onPressed: () {
               final auth = context.read<AuthService>();
+              final navigator = Navigator.of(context);
               final userStream = auth.authStateChanges;
               userStream.first.then((user) {
                 if (user != null && mounted) {
-                  Navigator.of(context).push(
+                  navigator.push(
                     MaterialPageRoute(
                       builder: (context) => SettingsPage(user: user),
                     ),
@@ -366,6 +404,9 @@ class _HomePageState extends State<HomePage> {
             );
           }
 
+          // Démarre le listener de blocage dès que l'utilisateur est connu
+          _startBlockedListener(user.uid);
+
           if (!_cguCheckCompleted) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -374,7 +415,32 @@ class _HomePageState extends State<HomePage> {
             return _buildAccessDeniedScreen(context, user);
           }
 
-          return _buildMainContent(context, user);
+          // L'admin a toujours accès complet
+          if (user.role == user_model.UserRole.admin) {
+            return _buildMainContent(context, user);
+          }
+
+          // Pour les autres utilisateurs, vérifier le statut d'approbation en temps réel
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .snapshots(),
+            builder: (context, userDocSnap) {
+              if (userDocSnap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final data = userDocSnap.data?.data() as Map<String, dynamic>?;
+              final approvalStatus = data?['approvalStatus'] as String?;
+              if (approvalStatus == 'pending') {
+                return _buildPendingApprovalScreen(context, isDark);
+              }
+              if (approvalStatus == 'rejected') {
+                return _buildRejectedScreen(context, isDark);
+              }
+              return _buildMainContent(context, user);
+            },
+          );
         },
       ),
     );
@@ -434,6 +500,117 @@ class _HomePageState extends State<HomePage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingApprovalScreen(BuildContext context, bool isDark) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.orange.withOpacity(0.1),
+              ),
+              child: Icon(
+                Icons.hourglass_empty,
+                size: 64,
+                color: Colors.orange[400],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Validation en cours',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Votre demande d\'adhésion est en attente de validation par un administrateur. '
+              'Vous recevrez une notification dès qu\'elle sera traitée.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: _logout,
+                icon: const Icon(Icons.logout),
+                label: const Text('Se déconnecter'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRejectedScreen(BuildContext context, bool isDark) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 40),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.red.withOpacity(0.1),
+              ),
+              child: Icon(
+                Icons.cancel_outlined,
+                size: 64,
+                color: Colors.red[400],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Demande refusée',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Votre demande d\'adhésion a été refusée. '
+              'Pour plus d\'informations, contactez l\'administration.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _logout,
+                icon: const Icon(Icons.logout),
+                label: const Text('Se déconnecter'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[600],
                 ),
               ),
             ),
@@ -673,6 +850,31 @@ class _HomePageState extends State<HomePage> {
           ),
         if (user.role == user_model.UserRole.admin) const SizedBox(height: 12),
 
+        if (user.role == user_model.UserRole.admin)
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AdminUsersPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.manage_accounts),
+              label: const Text('Gérer les utilisateurs'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        if (user.role == user_model.UserRole.admin) const SizedBox(height: 12),
+
         SizedBox(
           width: double.infinity,
           height: 48,
@@ -865,8 +1067,13 @@ class _MessageFormDialog extends StatefulWidget {
 
 class _MessageFormDialogState extends State<_MessageFormDialog> {
   late TextEditingController _messageController;
+  final TextEditingController _linkController = TextEditingController();
   bool _isSending = false;
   String? _error;
+
+  XFile? _imageFile;
+  Uint8List? _imageBytes;
+  PlatformFile? _pickedFile;
 
   @override
   void initState() {
@@ -877,7 +1084,39 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
   @override
   void dispose() {
     _messageController.dispose();
+    _linkController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _imageFile = image;
+        _imageBytes = bytes;
+      });
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      withData: true,
+      type: FileType.any,
+    );
+    if (result != null && result.files.isNotEmpty) {
+      setState(() => _pickedFile = result.files.first);
+    }
+  }
+
+  Future<String> _uploadBytes(Uint8List bytes, String path) async {
+    final ref = FirebaseStorage.instance.ref().child(path);
+    await ref.putData(bytes);
+    return await ref.getDownloadURL();
   }
 
   Future<void> _submitMessage() async {
@@ -892,7 +1131,29 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
     });
 
     try {
-      // Stocker le message dans Firestore
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      String? imageUrl;
+      String? fileUrl;
+      String? fileName;
+
+      if (_imageFile != null && _imageBytes != null) {
+        final ext = _imageFile!.name.split('.').last;
+        imageUrl = await _uploadBytes(
+          _imageBytes!,
+          'messages_attachments/${widget.user.uid}/${ts}_image.$ext',
+        );
+      }
+
+      if (_pickedFile != null && _pickedFile!.bytes != null) {
+        fileName = _pickedFile!.name;
+        fileUrl = await _uploadBytes(
+          _pickedFile!.bytes!,
+          'messages_attachments/${widget.user.uid}/${ts}_$fileName',
+        );
+      }
+
+      final link = _linkController.text.trim();
+
       await FirebaseFirestore.instance.collection('messages').add({
         'userId': widget.user.uid,
         'userName': '${widget.user.prenom} ${widget.user.nom}',
@@ -902,6 +1163,10 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         'message': _messageController.text.trim(),
         'timestamp': FieldValue.serverTimestamp(),
         'read': false,
+        if (link.isNotEmpty) 'linkUrl': link,
+        if (imageUrl != null) 'imageUrl': imageUrl,
+        if (fileUrl != null) 'fileUrl': fileUrl,
+        if (fileName != null) 'fileName': fileName,
       });
 
       if (mounted) {
@@ -917,15 +1182,6 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
     } catch (e) {
       debugPrint('❌ Error: $e');
       setState(() => _error = 'Erreur: $e');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -973,7 +1229,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   border: Border.all(color: Colors.red),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -981,6 +1237,129 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
                   _error!,
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              'Pièces jointes (optionnel)',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Champ lien
+            TextField(
+              controller: _linkController,
+              enabled: !_isSending,
+              keyboardType: TextInputType.url,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
+                labelText: 'Lien (URL)',
+                hintText: 'https://...',
+                prefixIcon: const Icon(Icons.link),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Boutons photo / fichier
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSending ? null : _pickImage,
+                    icon: const Icon(Icons.photo_camera, size: 18),
+                    label: Text(_imageFile != null ? 'Changer photo' : 'Photo'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSending ? null : _pickFile,
+                    icon: const Icon(Icons.attach_file, size: 18),
+                    label: Text(_pickedFile != null ? 'Changer fichier' : 'Fichier'),
+                  ),
+                ),
+              ],
+            ),
+            // Aperçu image
+            if (_imageBytes != null) ...[
+              const SizedBox(height: 12),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      _imageBytes!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _imageFile = null;
+                        _imageBytes = null;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            // Nom du fichier sélectionné
+            if (_pickedFile != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDark ? Colors.grey[600]! : Colors.grey[300]!,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _pickedFile!.name,
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _pickedFile = null),
+                      child: const Icon(Icons.close, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // Indicateur d'envoi
+            if (_isSending) ...[
+              const SizedBox(height: 16),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 6),
+              Text(
+                'Envoi en cours...',
+                style: Theme.of(context).textTheme.labelSmall,
               ),
             ],
           ],
@@ -993,22 +1372,11 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         ),
         ElevatedButton(
           onPressed: _isSending ? null : _submitMessage,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+          child: const Text(
+            'Envoyer',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          child: _isSending
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                  ),
-                )
-              : const Text(
-                  'Envoyer',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
         ),
       ],
     );

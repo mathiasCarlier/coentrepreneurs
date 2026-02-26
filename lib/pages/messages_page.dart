@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
@@ -177,6 +178,114 @@ class _MessagesPageState extends State<MessagesPage> {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ),
+                          // Lien
+                          if (data['linkUrl'] != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'Lien:',
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: () => _launchUrl(data['linkUrl'] as String),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.blue.withValues(alpha: 0.15) : Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue[200]!),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.link, size: 16, color: Colors.blue[700]),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        data['linkUrl'] as String,
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          decoration: TextDecoration.underline,
+                                          fontSize: 13,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.open_in_new, size: 14, color: Colors.blue[700]),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          // Image
+                          if (data['imageUrl'] != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'Photo:',
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () => _launchUrl(data['imageUrl'] as String),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  data['imageUrl'] as String,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const SizedBox(
+                                      height: 200,
+                                      child: Center(child: CircularProgressIndicator()),
+                                    );
+                                  },
+                                  errorBuilder: (_, _, _) => Container(
+                                    height: 80,
+                                    color: Colors.grey[200],
+                                    child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          // Fichier
+                          if (data['fileUrl'] != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              'Fichier:',
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: () => _launchUrl(data['fileUrl'] as String),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.orange[200]!),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        data['fileName'] as String? ?? 'Télécharger le fichier',
+                                        style: const TextStyle(fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.download, size: 18, color: Colors.orange[700]),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -192,6 +301,43 @@ class _MessagesPageState extends State<MessagesPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green[600],
                                     foregroundColor: Colors.white,
+                                  ),
+                                )
+                              else if (data['published'] != true)
+                                ElevatedButton.icon(
+                                  onPressed: () => _publishMessage(messageDoc.id),
+                                  icon: const Icon(Icons.campaign, size: 18, color: Colors.white),
+                                  label: const Text(
+                                    'Publier',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[600],
+                                    foregroundColor: Colors.white,
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.blue[200]!),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle, size: 16, color: Colors.blue[700]),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Publié',
+                                        style: TextStyle(
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ElevatedButton.icon(
@@ -219,6 +365,41 @@ class _MessagesPageState extends State<MessagesPage> {
         },
       ),
     );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _publishMessage(String docId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('messages')
+          .doc(docId)
+          .update({'published': true});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Message publié dans les notifications'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _markAsRead(String docId) async {
