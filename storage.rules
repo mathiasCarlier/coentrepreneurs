@@ -1,0 +1,22 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Pièces jointes des messages : l'auteur peut uploader, les admins peuvent lire
+    match /messages_attachments/{userId}/{fileName} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+    }
+
+    // Pièces jointes des rencontres : tout utilisateur authentifié peut uploader et lire
+    match /events_attachments/{fileName} {
+      allow write: if request.auth != null;
+      allow read: if request.auth != null;
+    }
+
+    // Refuser tout le reste par défaut
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

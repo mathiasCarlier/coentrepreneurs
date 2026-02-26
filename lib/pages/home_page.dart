@@ -1115,7 +1115,12 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
 
   Future<String> _uploadBytes(Uint8List bytes, String path) async {
     final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putData(bytes);
+    await ref.putData(bytes).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception(
+        'Délai dépassé lors de l\'upload. Vérifiez votre connexion.',
+      ),
+    );
     return await ref.getDownloadURL();
   }
 
