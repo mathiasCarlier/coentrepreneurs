@@ -47,6 +47,101 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final emailCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    final formKey = GlobalKey<FormState>();
+    String? successMessage;
+    String? errorMessage;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Mot de passe oublié'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Saisis ton adresse email pour recevoir un lien de réinitialisation.',
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) {
+                        final value = (v ?? '').trim();
+                        if (value.isEmpty) return 'Email requis.';
+                        if (!value.contains('@')) return 'Email invalide.';
+                        return null;
+                      },
+                    ),
+                    if (successMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        successMessage!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: successMessage != null
+                      ? null
+                      : () async {
+                          if (!(formKey.currentState?.validate() ?? false)) {
+                            return;
+                          }
+                          setStateDialog(() {
+                            errorMessage = null;
+                            successMessage = null;
+                          });
+                          try {
+                            final auth = context.read<AuthService>();
+                            await auth.sendPasswordResetEmail(
+                              emailCtrl.text.trim(),
+                            );
+                            setStateDialog(() {
+                              successMessage =
+                                  'Email envoyé ! Vérifie ta boîte mail.';
+                            });
+                          } catch (e) {
+                            setStateDialog(() => errorMessage = e.toString());
+                          }
+                        },
+                  child: const Text('Envoyer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    emailCtrl.dispose();
+  }
+
   // NOTE: _submit
   // - Valide le formulaire, appelle `AuthService.login` et redirige vers
   //   `/home` en cas de succès. Les erreurs sont affichées via `_error`.
@@ -133,6 +228,17 @@ class _LoginPageState extends State<LoginPage> {
                             }
                             return null;
                           },
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _showForgotPasswordDialog,
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Mot de passe oublié ?'),
+                          ),
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 12),

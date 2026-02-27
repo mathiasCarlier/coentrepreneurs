@@ -1,3 +1,14 @@
+# Dépendances npm
+node_modules/
+
+# Exports de données
+backup.json
+
+# Clés sensibles — ne jamais commiter
+serviceAccountKey.json
+*.serviceAccountKey.json
+*firebase-adminsdk*.json
+
 # Miscellaneous
 *.class
 *.log

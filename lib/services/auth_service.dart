@@ -202,6 +202,17 @@ class AuthService {
     }
   }
 
+  /// Envoie un email de réinitialisation du mot de passe
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw 'Erreur lors de l\'envoi de l\'email: $e';
+    }
+  }
+
   /// Déconnexion
   Future<void> logout() async {
     try {

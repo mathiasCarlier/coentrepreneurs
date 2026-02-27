@@ -292,92 +292,96 @@ class _HomePageState extends State<HomePage> {
         title: const Icon(Icons.home, size: 28),
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
-        actions: [
-          // Bouton notifications avec badge
-          StreamBuilder<int>(
-            stream: _getTotalNotificationsCount(),
-            builder: (context, snapshot) {
-              final notificationCount = snapshot.data ?? 0;
-              
-              return badges.Badge(
-                badgeContent: Text(
-                  notificationCount > 99 ? '99+' : notificationCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+        leadingWidth: 200,
+        leading: Row(
+          children: [
+            const SizedBox(width: 4),
+            // Bouton notifications avec badge
+            StreamBuilder<int>(
+              stream: _getTotalNotificationsCount(),
+              builder: (context, snapshot) {
+                final notificationCount = snapshot.data ?? 0;
+                return badges.Badge(
+                  badgeContent: Text(
+                    notificationCount > 99 ? '99+' : notificationCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                showBadge: notificationCount > 0,
-                position: badges.BadgePosition.topEnd(top: 0, end: 4),
-                badgeStyle: const badges.BadgeStyle(
-                  badgeColor: Colors.red,
-                  padding: EdgeInsets.all(4),
-                ),
-                child: IconButton(
+                  showBadge: notificationCount > 0,
+                  position: badges.BadgePosition.topEnd(top: 0, end: 4),
+                  badgeStyle: const badges.BadgeStyle(
+                    badgeColor: Colors.red,
+                    padding: EdgeInsets.all(4),
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationsPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.mail_outline, size: 24),
+                    tooltip: 'Notifications',
+                  ),
+                );
+              },
+            ),
+            // Bouton toutes les rencontres
+            StreamBuilder<user_model.User?>(
+              stream: auth.authStateChanges,
+              builder: (context, snapshot) {
+                final user = snapshot.data;
+                if (user == null) return const SizedBox.shrink();
+                return IconButton(
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const NotificationsPage(),
+                        builder: (context) => AllEventsPage(currentUser: user),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.mail_outline, size: 24),
-                  tooltip: 'Notifications',
-                ),
-              );
-            },
-          ),
-          // Bouton toutes les rencontres
-          StreamBuilder<user_model.User?>(
-            stream: auth.authStateChanges,
-            builder: (context, snapshot) {
-              final user = snapshot.data;
-              if (user == null) return const SizedBox.shrink();
-              return IconButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => AllEventsPage(currentUser: user),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.calendar_month, size: 24),
-                tooltip: 'Toutes les rencontres',
-              );
-            },
-          ),
-          // Bouton FAQ
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const FAQPage(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.help_outline, size: 24),
-            tooltip: 'FAQ',
-          ),
-          // Bouton paramètres
-          IconButton(
-            onPressed: () {
-              final auth = context.read<AuthService>();
-              final navigator = Navigator.of(context);
-              final userStream = auth.authStateChanges;
-              userStream.first.then((user) {
-                if (user != null && mounted) {
-                  navigator.push(
-                    MaterialPageRoute(
-                      builder: (context) => SettingsPage(user: user),
-                    ),
-                  );
-                }
-              });
-            },
-            icon: const Icon(Icons.settings, size: 24),
-            tooltip: 'Paramètres',
-          ),
+                  icon: const Icon(Icons.calendar_month, size: 24),
+                  tooltip: 'Toutes les rencontres',
+                );
+              },
+            ),
+            // Bouton FAQ
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const FAQPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.help_outline, size: 24),
+              tooltip: 'FAQ',
+            ),
+            // Bouton paramètres
+            IconButton(
+              onPressed: () {
+                final auth = context.read<AuthService>();
+                final navigator = Navigator.of(context);
+                auth.authStateChanges.first.then((user) {
+                  if (user != null && mounted) {
+                    navigator.push(
+                      MaterialPageRoute(
+                        builder: (context) => SettingsPage(user: user),
+                      ),
+                    );
+                  }
+                });
+              },
+              icon: const Icon(Icons.settings, size: 24),
+              tooltip: 'Paramètres',
+            ),
+          ],
+        ),
+        actions: [
           IconButton(
             onPressed: _logout,
             icon: const Icon(Icons.logout, size: 24),
