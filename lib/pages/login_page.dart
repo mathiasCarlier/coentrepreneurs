@@ -104,7 +104,14 @@ class _LoginPageState extends State<LoginPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Annuler'),
+                  child: Text(
+                    'Annuler',
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                  ),
                 ),
                 FilledButton(
                   onPressed: successMessage != null
@@ -130,7 +137,14 @@ class _LoginPageState extends State<LoginPage> {
                             setStateDialog(() => errorMessage = e.toString());
                           }
                         },
-                  child: const Text('Envoyer'),
+                  child: Text(
+                    'Envoyer',
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                  ),
                 ),
               ],
             );

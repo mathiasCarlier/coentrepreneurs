@@ -111,7 +111,14 @@ class _AdminUsersPageState extends State<AdminUsersPage>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Annuler'),
+              child: Text(
+                'Annuler',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                ),
+              ),
             ),
             ElevatedButton(
               onPressed: selectedRole == normalised
@@ -142,7 +149,14 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                         }
                       }
                     },
-              child: const Text('Confirmer'),
+              child: Text(
+                'Confirmer',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                ),
+              ),
             ),
           ],
         ),
@@ -183,7 +197,14 @@ class _AdminUsersPageState extends State<AdminUsersPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: Text(
+              'Annuler',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -217,7 +238,9 @@ class _AdminUsersPageState extends State<AdminUsersPage>
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: isBlocked ? Colors.green : Colors.red,
-              foregroundColor: Colors.white,
+              foregroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
             ),
             child: Text(isBlocked ? 'Débloquer' : 'Bloquer'),
           ),

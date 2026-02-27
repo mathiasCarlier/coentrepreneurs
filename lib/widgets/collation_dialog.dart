@@ -99,18 +99,33 @@ class _CollationDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('Annuler'),
+          child: Text(
+            'Annuler',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
-          child: const Text('Non merci'),
+          child: Text(
+            'Non merci',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
         ),
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(true),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.amber[700],
-            foregroundColor: Colors.white,
+            foregroundColor: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : Colors.black,
           ),
           child: const Text('Oui, je participe'),
         ),

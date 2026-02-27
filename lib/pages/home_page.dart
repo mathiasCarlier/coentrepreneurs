@@ -168,7 +168,14 @@ class _HomePageState extends State<HomePage> {
               _logout();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Déconnexion'),
+            child: Text(
+              'Déconnexion',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+              ),
+            ),
           ),
         ],
       ),
@@ -1379,14 +1386,26 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
       actions: [
         TextButton(
           onPressed: _isSending ? null : () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
+          child: Text(
+            'Annuler',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
         ),
         ElevatedButton(
           onPressed: _isSending ? null : _submitMessage,
           style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-          child: const Text(
+          child: Text(
             'Envoyer',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],

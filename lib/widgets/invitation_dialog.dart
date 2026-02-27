@@ -288,13 +288,22 @@ class _InvitationDialogState extends State<_InvitationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
+          child: Text(
+            'Annuler',
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
+          ),
         ),
         ElevatedButton(
           onPressed: _submitInvitations,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green[600],
-            foregroundColor: Colors.white,
+            foregroundColor: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : Colors.black,
           ),
           child: const Text('✅ Envoyer les invitations'),
         ),

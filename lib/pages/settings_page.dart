@@ -549,13 +549,23 @@ class _SettingsPageState extends State<SettingsPage> {
               TextButton(
                 onPressed:
                     isLoading ? null : () => Navigator.of(dialogContext).pop(),
-                child: const Text('Annuler'),
+                child: Text(
+                  'Annuler',
+                  style: TextStyle(
+                    color: Theme.of(dialogContext).brightness == Brightness.dark
+                        ? Colors.white
+                        : Colors.black,
+                  ),
+                ),
               ),
               ElevatedButton(
                 onPressed: isLoading ? null : submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[600],
-                  foregroundColor: Colors.white,
+                  foregroundColor:
+                      Theme.of(dialogContext).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
                 ),
                 child: const Text('Modifier'),
               ),
