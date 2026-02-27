@@ -336,8 +336,8 @@ class _ActionButton extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            border: Border.all(color: color.withOpacity(0.5)),
+            color: color.withValues(alpha: 0.15),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(icon, size: 14, color: color),

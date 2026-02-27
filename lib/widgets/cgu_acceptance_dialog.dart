@@ -146,7 +146,7 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                     color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
                   ),
                   borderRadius: BorderRadius.circular(8),
-                  color: isDark ? Colors.grey[900]?.withOpacity(0.3) : Colors.grey[50],
+                  color: isDark ? Colors.grey[900]?.withValues(alpha: 0.3) : Colors.grey[50],
                 ),
                 child: Stack(
                   children: [
@@ -354,6 +354,7 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                           ElevatedButton(
                             onPressed: _acceptsCGU
                                 ? () async {
+                                    final navigator = Navigator.of(context);
                                     // Sauvegarder via CGUService
                                     if (widget.userId != null) {
                                       try {
@@ -363,7 +364,7 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                                       }
                                     }
                                     if (mounted) {
-                                      Navigator.of(context).pop(true);
+                                      navigator.pop(true);
                                       widget.onAccepted();
                                     }
                                   }

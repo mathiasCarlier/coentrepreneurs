@@ -366,7 +366,7 @@ class EventService {
       final snapshot = await _firestore
           .collection('events')
           .where('theme', isGreaterThanOrEqualTo: query)
-          .where('theme', isLessThan: query + 'z')
+          .where('theme', isLessThan: '${query}z')
           .get();
       
       return snapshot.docs

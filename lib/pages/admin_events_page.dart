@@ -122,6 +122,7 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
   }
 
   Future<void> _deleteEvent(BuildContext context, String eventId) async {
+    final messenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -141,24 +142,19 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
       ),
     );
 
-    if (confirm == true && mounted) {
-      try {
-        await _eventService.deleteEvent(eventId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Événement supprimé'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ Erreur: $e')),
-          );
-        }
-      }
+    if (confirm != true) return;
+    try {
+      await _eventService.deleteEvent(eventId);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('✅ Événement supprimé'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('❌ Erreur: $e')),
+      );
     }
   }
 }
@@ -204,11 +200,11 @@ class _EventCard extends StatelessWidget {
   Color _getStatusBackgroundColor(bool isDark) {
     switch (event.status) {
       case EventStatus.pending:
-        return isDark ? Colors.orange[900]!.withOpacity(0.3) : Colors.orange[50]!;
+        return isDark ? Colors.orange[900]!.withValues(alpha: 0.3) : Colors.orange[50]!;
       case EventStatus.started:
-        return isDark ? Colors.purple[900]!.withOpacity(0.3) : Colors.purple[50]!;
+        return isDark ? Colors.purple[900]!.withValues(alpha: 0.3) : Colors.purple[50]!;
       case EventStatus.finished:
-        return isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[200]!;
+        return isDark ? Colors.grey[800]!.withValues(alpha: 0.3) : Colors.grey[200]!;
     }
   }
 

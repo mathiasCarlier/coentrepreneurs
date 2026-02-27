@@ -140,7 +140,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               spreadRadius: 0,
             ),
@@ -315,7 +315,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: _getRatingColor(_rating).withOpacity(0.1),
+                                    color: _getRatingColor(_rating).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: _getRatingColor(_rating),
@@ -454,7 +454,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         border: Border.all(color: Colors.red),
                         borderRadius: BorderRadius.circular(8),
                       ),

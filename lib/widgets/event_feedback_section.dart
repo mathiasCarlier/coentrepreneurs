@@ -108,7 +108,7 @@ class _EventFeedbackSectionState extends State<EventFeedbackSection> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: _getRatingColor(averageRating.toInt()).withOpacity(0.2),
+                          color: _getRatingColor(averageRating.toInt()).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: _getRatingColor(averageRating.toInt()),
@@ -356,7 +356,7 @@ class _FeedbackCardState extends State<_FeedbackCard> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: widget.getRatingColor(widget.feedback.rating).withOpacity(0.2),
+                              color: widget.getRatingColor(widget.feedback.rating).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: widget.getRatingColor(widget.feedback.rating),

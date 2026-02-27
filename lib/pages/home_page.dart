@@ -107,6 +107,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showCGUDialog(String userId) {
+    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -121,7 +122,7 @@ class _HomePageState extends State<HomePage> {
                 .update({'approvalStatus': 'pending'});
             if (mounted) {
               setState(() => _userAcceptedCGU = true);
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(
                   content: Text(
                     'Votre demande d\'adhésion est en attente de validation par un administrateur.',
@@ -133,7 +134,7 @@ class _HomePageState extends State<HomePage> {
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text('Erreur: $e'),
                   backgroundColor: Colors.red,
@@ -290,6 +291,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Icon(Icons.home, size: 28),
+        centerTitle: true,
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         leadingWidth: 200,
@@ -464,7 +466,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
               ),
               child: Icon(
                 Icons.lock_outline,
@@ -525,7 +527,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
               ),
               child: Icon(
                 Icons.hourglass_empty,
@@ -579,7 +581,7 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
               ),
               child: Icon(
                 Icons.cancel_outlined,
@@ -689,8 +691,8 @@ class _HomePageState extends State<HomePage> {
         gradient: LinearGradient(
           colors: isDark
               ? [
-                  Colors.blue[900]!.withOpacity(0.3),
-                  Colors.purple[900]!.withOpacity(0.3),
+                  Colors.blue[900]!.withValues(alpha: 0.3),
+                  Colors.purple[900]!.withValues(alpha: 0.3),
                 ]
               : [Colors.blue[50]!, Colors.purple[50]!],
           begin: Alignment.topLeft,

@@ -88,7 +88,7 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
-      print('Erreur lors du chargement des données: $e');
+      debugPrint('Erreur lors du chargement des données: $e');
     }
   }
 
@@ -362,6 +362,7 @@ class _SettingsPageState extends State<SettingsPage> {
             final currentPwd = currentPwdCtrl.text.trim();
             final newPwd = newPwdCtrl.text.trim();
             final confirmPwd = confirmPwdCtrl.text.trim();
+            final messenger = ScaffoldMessenger.of(context);
 
             if (currentPwd.isEmpty || newPwd.isEmpty || confirmPwd.isEmpty) {
               setDialogState(
@@ -406,7 +407,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.of(dialogContext).pop();
               }
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(
                     content: Text('Mot de passe modifié avec succès'),
                     backgroundColor: Colors.green,
@@ -631,8 +632,8 @@ class _SettingsPageState extends State<SettingsPage> {
         gradient: LinearGradient(
           colors: isDark
               ? [
-                  Colors.blue[900]!.withOpacity(0.3),
-                  Colors.purple[900]!.withOpacity(0.3),
+                  Colors.blue[900]!.withValues(alpha: 0.3),
+                  Colors.purple[900]!.withValues(alpha: 0.3),
                 ]
               : [Colors.blue[50]!, Colors.purple[50]!],
           begin: Alignment.topLeft,
@@ -771,7 +772,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
+        color: isDark ? Colors.grey[900]?.withValues(alpha: 0.5) : Colors.grey[100],
         border: Border.all(
           color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
           width: 1,
@@ -972,7 +973,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
+        color: isDark ? Colors.grey[900]?.withValues(alpha: 0.5) : Colors.grey[100],
         border: Border.all(
           color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
           width: 1,
@@ -1217,7 +1218,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
+        color: isDark ? Colors.grey[900]?.withValues(alpha: 0.5) : Colors.grey[100],
         border: Border.all(
           color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
           width: 1,
@@ -1280,7 +1281,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900]?.withOpacity(0.5) : Colors.grey[100],
+        color: isDark ? Colors.grey[900]?.withValues(alpha: 0.5) : Colors.grey[100],
         border: Border.all(
           color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
           width: 1,

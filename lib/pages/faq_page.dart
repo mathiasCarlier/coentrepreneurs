@@ -269,7 +269,7 @@ class _FAQPageState extends State<FAQPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -296,7 +296,7 @@ class _FAQPageState extends State<FAQPage> {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: category.color.withOpacity(0.1),
+              color: category.color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(category.icon, color: category.color),

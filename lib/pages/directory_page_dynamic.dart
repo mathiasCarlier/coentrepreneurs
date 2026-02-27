@@ -20,13 +20,6 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
     super.dispose();
   }
 
-  Future<void> _launchURL(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -311,130 +304,6 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
     );
   }
 
-  Widget _buildProInfo(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Colors.orange[700],
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.orange[700],
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 13),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContactInfo(String value, String label) {
-    if (value.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 84,
-            child: Text(label, style: const TextStyle(fontSize: 14)),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(String phone, String email, String website) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        // Appeler
-        if (phone.isNotEmpty)
-          _buildButton(
-            label: 'Appeler',
-            onPressed: () => _launchURL('tel:$phone'),
-          ),
-        // Email
-        if (email.isNotEmpty)
-          _buildButton(
-            label: 'Email',
-            onPressed: () => _launchURL('mailto:$email'),
-          ),
-        // Visiter site
-        if (website.isNotEmpty)
-          _buildButton(
-            label: 'Site web',
-            onPressed: () => _launchURL(_formatWebsiteUrl(website)),
-          ),
-      ],
-    );
-  }
-
-  String _formatWebsiteUrl(String website) {
-    if (!website.startsWith('http://') && !website.startsWith('https://')) {
-      return 'https://$website';
-    }
-    return website;
-  }
-
-  Widget _buildButton({
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[400]!),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // ========================================
@@ -593,10 +462,10 @@ class DirectoryDetailPage extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     // Dark mode: use a darker, slightly orange-tinted background
-                    color: isDark ? Colors.orange[900]?.withOpacity(0.08) : Colors.orange[50],
+                    color: isDark ? Colors.orange[900]?.withValues(alpha: 0.08) : Colors.orange[50],
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isDark ? Colors.orange[700]!.withOpacity(0.28) : Colors.orange[200]!,
+                      color: isDark ? Colors.orange[700]!.withValues(alpha: 0.28) : Colors.orange[200]!,
                       width: 1,
                     ),
                   ),

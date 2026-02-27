@@ -112,8 +112,8 @@ ThemeData _buildLightTheme() {
       fillColor: scheme.surfaceContainerHighest,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       // Make hint and label more visible in light mode
-      hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.8)),
-      labelStyle: TextStyle(color: scheme.onSurface.withOpacity(0.9)),
+      hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.8)),
+      labelStyle: TextStyle(color: scheme.onSurface.withValues(alpha: 0.9)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
