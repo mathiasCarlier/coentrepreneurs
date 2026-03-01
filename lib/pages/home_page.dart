@@ -805,13 +805,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showMessageDialog(BuildContext context, user_model.User user, String category) {
-    showDialog(
-      context: context,
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
       builder: (context) => _MessageFormDialog(
         user: user,
         category: category,
       ),
-    );
+    ));
   }
 
   Widget _buildActionsSection(BuildContext context, user_model.User user, bool isDark) {
@@ -1209,14 +1209,30 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AlertDialog(
-      title: Text(widget.category),
-      content: SingleChildScrollView(
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.category),
+        elevation: 0,
+        backgroundColor:
+            isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
+        actions: [
+          TextButton(
+            onPressed: _isSending ? null : _submitMessage,
+            child: Text(
+              'Envoyer',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
             Text(
               'Votre message:',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1226,8 +1242,8 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
             const SizedBox(height: 8),
             TextField(
               controller: _messageController,
-              maxLines: 8,
-              minLines: 6,
+              maxLines: 10,
+              minLines: 8,
               enabled: !_isSending,
               style: TextStyle(
                 color: isDark ? Colors.white : Colors.black87,
@@ -1383,32 +1399,6 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSending ? null : () => Navigator.of(context).pop(),
-          child: Text(
-            'Annuler',
-            style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: _isSending ? null : _submitMessage,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-          child: Text(
-            'Envoyer',
-            style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
