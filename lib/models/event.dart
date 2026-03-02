@@ -116,7 +116,7 @@ class Event {
     for (final reg in regs) {
       final userId = reg['user_id'] as String? ?? '';
       final regStatus = reg['status'] as String? ?? '';
-      final collation = reg['collation'] as bool? ?? false;
+      final collation = reg['has_collation'] as bool? ?? false;
 
       if (regStatus == 'registered' || regStatus == 'confirmed') {
         registeredIds.add(userId);

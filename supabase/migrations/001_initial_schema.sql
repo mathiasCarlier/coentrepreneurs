@@ -72,7 +72,7 @@ CREATE TABLE public.registrations (
   event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'confirmed', 'declined')),
-  collation BOOLEAN DEFAULT false,
+  has_collation BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   responded_at TIMESTAMPTZ,
   UNIQUE(event_id, user_id)

@@ -8,7 +8,7 @@ class EventService {
   SupabaseClient get _supabase => Supabase.instance.client;
 
   // Requête de sélection avec le join registrations
-  static const _select = '*, registrations(user_id, status, collation)';
+  static const _select = '*, registrations(user_id, status, has_collation)';
 
   // ========================================
   // OPÉRATIONS CRUD
@@ -413,7 +413,7 @@ class EventService {
     final eventIds = rows.map((r) => r['id'] as String).toList();
     final regs = await _supabase
         .from('registrations')
-        .select('event_id, user_id, status, collation')
+        .select('event_id, user_id, status, has_collation')
         .inFilter('event_id', eventIds);
 
     final regsByEvent = <String, List<Map<String, dynamic>>>{};

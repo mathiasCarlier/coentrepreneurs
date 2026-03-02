@@ -9,7 +9,7 @@ import 'package:coentrepreneurs/models/user.dart' as user_model;
 class RegistrationService {
   SupabaseClient get _supabase => Supabase.instance.client;
 
-  static const _eventSelect = '*, registrations(user_id, status, collation)';
+  static const _eventSelect = '*, registrations(user_id, status, has_collation)';
 
   // ========================================
   // INSCRIPTION AUX ÉVÉNEMENTS
@@ -73,7 +73,7 @@ class RegistrationService {
     try {
       await _supabase
           .from('registrations')
-          .update({'collation': participates})
+          .update({'has_collation': participates})
           .eq('event_id', eventId)
           .eq('user_id', userId);
     } catch (e) {
@@ -85,7 +85,7 @@ class RegistrationService {
     try {
       await _supabase
           .from('registrations')
-          .update({'collation': false})
+          .update({'has_collation': false})
           .eq('event_id', eventId)
           .eq('user_id', userId);
     } catch (e) {
