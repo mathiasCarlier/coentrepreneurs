@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DirectoryPageDynamic extends StatefulWidget {
@@ -10,7 +10,6 @@ class DirectoryPageDynamic extends StatefulWidget {
 }
 
 class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -58,10 +57,10 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
           ),
           // Liste des adhérents et admins
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('users')
-                  .snapshots(),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: Supabase.instance.client
+                  .from('users')
+                  .stream(primaryKey: ['id']),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -73,7 +72,7 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
                   );
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -88,20 +87,16 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
                 }
 
                 // Filtrer les adhérents et admins selon la recherche (exclure les invités)
-                final allMembers = snapshot.data!.docs;
-                final filteredMembers = allMembers.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                final filteredMembers = snapshot.data!.where((data) {
                   final role = data['role']?.toString().toLowerCase() ?? 'invite';
-                  
+
                   // Exclure les invités
-                  if (role == 'invite') {
-                    return false;
-                  }
-                  
+                  if (role == 'invite') return false;
+
                   final prenom = data['prenom']?.toString().toLowerCase() ?? '';
                   final nom = data['nom']?.toString().toLowerCase() ?? '';
                   final email = data['email']?.toString().toLowerCase() ?? '';
-                  final companyName = data['companyName']?.toString().toLowerCase() ?? '';
+                  final companyName = data['company_name']?.toString().toLowerCase() ?? '';
                   final skills = data['skills']?.toString().toLowerCase() ?? '';
 
                   return prenom.contains(_searchQuery) ||
@@ -128,9 +123,7 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: filteredMembers.length,
                   itemBuilder: (context, index) {
-                    final doc = filteredMembers[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _buildCard(context, data);
+                    return _buildCard(context, filteredMembers[index]);
                   },
                 );
               },
@@ -149,8 +142,8 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
     final role = memberData['role'] ?? 'adherent';
     
     // Informations professionnelles
-    final shareProInfo = memberData['shareProInfo'] ?? false;
-    final companyName = shareProInfo ? (memberData['companyName'] ?? '') : '';
+    final shareProInfo = memberData['share_pro_info'] ?? false;
+    final companyName = shareProInfo ? (memberData['company_name'] ?? '') : '';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12, top: 4),
@@ -324,10 +317,10 @@ class DirectoryDetailPage extends StatelessWidget {
     final role = memberData['role'] ?? 'adherent';
     
     // Informations professionnelles
-    final shareProInfo = memberData['shareProInfo'] ?? false;
-    final companyName = shareProInfo ? (memberData['companyName'] ?? '') : '';
+    final shareProInfo = memberData['share_pro_info'] ?? false;
+    final companyName = shareProInfo ? (memberData['company_name'] ?? '') : '';
     final skills = shareProInfo ? (memberData['skills'] ?? '') : '';
-    final professionalAddress = shareProInfo ? (memberData['professionalAddress'] ?? '') : '';
+    final professionalAddress = shareProInfo ? (memberData['professional_address'] ?? '') : '';
     final website = shareProInfo ? (memberData['website'] ?? '') : '';
 
     return Scaffold(

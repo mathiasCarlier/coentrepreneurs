@@ -1,7 +1,6 @@
 // pages/notifications_page.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,31 +26,36 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _loadReadIds() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
-    final eventIds = doc.data()?['readNotificationEventIds'];
+    final data = await Supabase.instance.client
+        .from('users')
+        .select('read_notification_event_ids, read_notification_message_ids, read_new_member_ids')
+        .eq('id', uid)
+        .maybeSingle();
+    final eventIds = data?['read_notification_event_ids'];
     if (eventIds is List && mounted) {
       setState(() => _readEventIds.addAll(eventIds.cast<String>()));
     }
-    final messageIds = doc.data()?['readNotificationMessageIds'];
+    final messageIds = data?['read_notification_message_ids'];
     if (messageIds is List && mounted) {
       setState(() => _readMessageIds.addAll(messageIds.cast<String>()));
     }
-    final memberIds = doc.data()?['readNewMemberIds'];
+    final memberIds = data?['read_new_member_ids'];
     if (memberIds is List && mounted) {
       setState(() => _readNewMemberIds.addAll(memberIds.cast<String>()));
     }
   }
 
   Future<void> _loadUserInfo() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    final role = doc.data()?['role'] as String? ?? '';
+    final data = await Supabase.instance.client
+        .from('users')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle();
+    final role = data?['role'] as String? ?? '';
     if (mounted) {
       setState(() {
         _isAdmin = role == 'admin' || role.contains('admin');
@@ -61,11 +65,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _markAsRead(String eventId) async {
     setState(() => _readEventIds.add(eventId));
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'readNotificationEventIds': FieldValue.arrayUnion([eventId]),
-    });
+    final userData = await Supabase.instance.client
+        .from('users')
+        .select('read_notification_event_ids')
+        .eq('id', uid)
+        .maybeSingle();
+    final currentIds = List<String>.from(userData?['read_notification_event_ids'] ?? []);
+    if (!currentIds.contains(eventId)) {
+      currentIds.add(eventId);
+      await Supabase.instance.client
+          .from('users')
+          .update({'read_notification_event_ids': currentIds}).eq('id', uid);
+    }
   }
 
   Future<void> _launchUrl(String url) async {
@@ -78,118 +91,147 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _markMessageAsRead(String messageId) async {
     setState(() => _readMessageIds.add(messageId));
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'readNotificationMessageIds': FieldValue.arrayUnion([messageId]),
-    });
+    final userData = await Supabase.instance.client
+        .from('users')
+        .select('read_notification_message_ids')
+        .eq('id', uid)
+        .maybeSingle();
+    final currentIds = List<String>.from(userData?['read_notification_message_ids'] ?? []);
+    if (!currentIds.contains(messageId)) {
+      currentIds.add(messageId);
+      await Supabase.instance.client
+          .from('users')
+          .update({'read_notification_message_ids': currentIds}).eq('id', uid);
+    }
   }
 
   Stream<List<Map<String, dynamic>>> _getPublishedMessages() {
-    return FirebaseFirestore.instance
-        .collection('messages')
-        .where('published', isEqualTo: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
+    return Supabase.instance.client
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .map((rows) {
+      final published = rows.where((row) => row['published'] == true).map((row) {
+        DateTime? timestamp;
+        final ts = row['timestamp'];
+        if (ts != null) {
+          timestamp = DateTime.tryParse(ts as String);
+        }
         return {
-          'id': doc.id,
-          'userName': data['userName'] ?? '',
-          'category': data['category'] ?? '',
-          'message': data['message'] ?? '',
-          'timestamp': data['timestamp'] as Timestamp?,
-          'linkUrl': data['linkUrl'] as String?,
-          'imageUrl': data['imageUrl'] as String?,
-          'fileUrl': data['fileUrl'] as String?,
-          'fileName': data['fileName'] as String?,
+          'id': row['id'] as String,
+          'userName': row['userName'] ?? row['user_name'] ?? '',
+          'category': row['category'] ?? '',
+          'message': row['message'] ?? '',
+          'timestamp': timestamp,
+          'linkUrl': row['linkUrl'] as String? ?? row['link_url'] as String?,
+          'imageUrl': row['imageUrl'] as String? ?? row['image_url'] as String?,
+          'fileUrl': row['fileUrl'] as String? ?? row['file_url'] as String?,
+          'fileName': row['fileName'] as String? ?? row['file_name'] as String?,
         };
-      }).toList()
-        ..sort((a, b) {
-          final ta = a['timestamp'] as Timestamp?;
-          final tb = b['timestamp'] as Timestamp?;
-          if (ta == null && tb == null) return 0;
-          if (ta == null) return 1;
-          if (tb == null) return -1;
-          return tb.compareTo(ta);
-        });
+      }).toList();
+
+      published.sort((a, b) {
+        final ta = a['timestamp'] as DateTime?;
+        final tb = b['timestamp'] as DateTime?;
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb.compareTo(ta);
+      });
+
+      return published;
     });
   }
 
   // Stream admin : utilisateurs en attente d'approbation
   Stream<List<Map<String, dynamic>>> _getPendingUsers() {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .where('approvalStatus', isEqualTo: 'pending')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
+    return Supabase.instance.client
+        .from('users')
+        .stream(primaryKey: ['id'])
+        .eq('approval_status', 'pending')
+        .map((rows) {
+      final mapped = rows.map((row) {
+        DateTime? createdAt;
+        final ca = row['created_at'];
+        if (ca != null) {
+          createdAt = DateTime.tryParse(ca as String);
+        }
         return {
-          'id': doc.id,
-          'prenom': data['prenom'] ?? '',
-          'nom': data['nom'] ?? '',
-          'email': data['email'] ?? '',
-          'phone': data['phone'] ?? '',
-          'createdAt': data['createdAt'] as Timestamp?,
+          'id': row['id'] as String,
+          'prenom': row['prenom'] ?? '',
+          'nom': row['nom'] ?? '',
+          'email': row['email'] ?? '',
+          'phone': row['phone'] ?? '',
+          'createdAt': createdAt,
         };
-      }).toList()
-        ..sort((a, b) {
-          final ta = a['createdAt'] as Timestamp?;
-          final tb = b['createdAt'] as Timestamp?;
-          if (ta == null && tb == null) return 0;
-          if (ta == null) return 1;
-          if (tb == null) return -1;
-          return tb.compareTo(ta);
-        });
+      }).toList();
+
+      mapped.sort((a, b) {
+        final ta = a['createdAt'] as DateTime?;
+        final tb = b['createdAt'] as DateTime?;
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb.compareTo(ta);
+      });
+
+      return mapped;
     });
   }
 
   // Stream utilisateurs : nouveaux membres approuvés (7 derniers jours)
   Stream<List<Map<String, dynamic>>> _getApprovedMembers() {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .where('approvalStatus', isEqualTo: 'approved')
-        .snapshots()
-        .map((snapshot) {
+    return Supabase.instance.client
+        .from('users')
+        .stream(primaryKey: ['id'])
+        .eq('approval_status', 'approved')
+        .map((rows) {
       final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-      final currentUid = FirebaseAuth.instance.currentUser?.uid;
-      return snapshot.docs
-          .where((doc) {
-            if (doc.id == currentUid) return false;
-            final approvedAt = doc.data()['approvedAt'] as Timestamp?;
-            if (approvedAt == null) return false;
-            return approvedAt.toDate().isAfter(sevenDaysAgo);
-          })
-          .map((doc) {
-            final data = doc.data();
-            return {
-              'id': doc.id,
-              'prenom': data['prenom'] ?? '',
-              'nom': data['nom'] ?? '',
-              'email': data['email'] ?? '',
-              'approvedAt': data['approvedAt'] as Timestamp?,
-            };
-          })
-          .toList()
-          ..sort((a, b) {
-            final ta = a['approvedAt'] as Timestamp?;
-            final tb = b['approvedAt'] as Timestamp?;
-            if (ta == null && tb == null) return 0;
-            if (ta == null) return 1;
-            if (tb == null) return -1;
-            return tb.compareTo(ta);
-          });
+      final currentUid = Supabase.instance.client.auth.currentUser?.id;
+
+      final filtered = rows.where((row) {
+        if (row['id'] == currentUid) return false;
+        final approvedAtRaw = row['approved_at'];
+        if (approvedAtRaw == null) return false;
+        final approvedAt = DateTime.tryParse(approvedAtRaw as String);
+        if (approvedAt == null) return false;
+        return approvedAt.isAfter(sevenDaysAgo);
+      }).map((row) {
+        DateTime? approvedAt;
+        final aa = row['approved_at'];
+        if (aa != null) {
+          approvedAt = DateTime.tryParse(aa as String);
+        }
+        return {
+          'id': row['id'] as String,
+          'prenom': row['prenom'] ?? '',
+          'nom': row['nom'] ?? '',
+          'email': row['email'] ?? '',
+          'approvedAt': approvedAt,
+        };
+      }).toList();
+
+      filtered.sort((a, b) {
+        final ta = a['approvedAt'] as DateTime?;
+        final tb = b['approvedAt'] as DateTime?;
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb.compareTo(ta);
+      });
+
+      return filtered;
     });
   }
 
   Future<void> _approveUser(String uid, String prenom, String nom) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'approvalStatus': 'approved',
-        'approvedAt': FieldValue.serverTimestamp(),
+      await Supabase.instance.client.from('users').update({
+        'approval_status': 'approved',
+        'approved_at': DateTime.now().toIso8601String(),
         'role': 'adherent',
-      });
+      }).eq('id', uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -245,10 +287,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (confirm != true) return;
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'approvalStatus': 'rejected',
+      await Supabase.instance.client.from('users').update({
+        'approval_status': 'rejected',
         'blocked': true,
-      });
+      }).eq('id', uid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -268,57 +310,66 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _markNewMemberAsSeen(String memberId) async {
     setState(() => _readNewMemberIds.add(memberId));
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(uid).update({
-      'readNewMemberIds': FieldValue.arrayUnion([memberId]),
-    });
+    final userData = await Supabase.instance.client
+        .from('users')
+        .select('read_new_member_ids')
+        .eq('id', uid)
+        .maybeSingle();
+    final currentIds = List<String>.from(userData?['read_new_member_ids'] ?? []);
+    if (!currentIds.contains(memberId)) {
+      currentIds.add(memberId);
+      await Supabase.instance.client
+          .from('users')
+          .update({'read_new_member_ids': currentIds}).eq('id', uid);
+    }
   }
 
   // Stream pour les nouveaux événements créés
   Stream<List<Map<String, dynamic>>> _getNewEvents() {
-    return FirebaseFirestore.instance
-        .collection('events')
-        .snapshots()
-        .map((snapshot) {
+    return Supabase.instance.client
+        .from('events')
+        .stream(primaryKey: ['id'])
+        .map((rows) {
       final today = DateTime.now();
       final todayStart = DateTime(today.year, today.month, today.day);
-      
-      return snapshot.docs
-          .where((doc) {
-            final data = doc.data() as Map<String, dynamic>? ?? {};
-            final createdAt = data['createdAt'] as Timestamp?;
-            if (createdAt == null) return false;
-            final createdDate = DateTime(
-              createdAt.toDate().year,
-              createdAt.toDate().month,
-              createdAt.toDate().day,
-            );
-            if (!createdDate.isAtSameMomentAs(todayStart) && createdDate.isBefore(todayStart)) {
-              return false;
-            }
-            // Exclure les événements dont la date de rencontre est passée
-            final eventDateTs = data['date'] as Timestamp?;
-            if (eventDateTs == null) return false;
-            final eventDay = DateTime(
-              eventDateTs.toDate().year,
-              eventDateTs.toDate().month,
-              eventDateTs.toDate().day,
-            );
-            return !eventDay.isBefore(todayStart);
-          })
-          .map((doc) {
-            final data = doc.data() as Map<String, dynamic>? ?? {};
-            return {
-              'id': doc.id,
-              'theme': data['theme'] ?? 'Événement',
-              'date': (data['date'] as Timestamp).toDate(),
-              'lieu': data['lieu'] ?? '',
-              'createdAt': data['createdAt'] as Timestamp,
-            };
-          })
-          .toList()
-          ..sort((a, b) => (b['createdAt'] as Timestamp).compareTo(a['createdAt'] as Timestamp));
+
+      final filtered = rows.where((row) {
+        final createdAtRaw = row['created_at'];
+        if (createdAtRaw == null) return false;
+        final createdAt = DateTime.tryParse(createdAtRaw as String);
+        if (createdAt == null) return false;
+        final createdDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+        if (!createdDate.isAtSameMomentAs(todayStart) && createdDate.isBefore(todayStart)) {
+          return false;
+        }
+        // Exclure les événements dont la date de rencontre est passée
+        final eventDateRaw = row['date'];
+        if (eventDateRaw == null) return false;
+        final eventDate = DateTime.tryParse(eventDateRaw as String);
+        if (eventDate == null) return false;
+        final eventDay = DateTime(eventDate.year, eventDate.month, eventDate.day);
+        return !eventDay.isBefore(todayStart);
+      }).map((row) {
+        final eventDate = DateTime.parse(row['date'] as String);
+        final createdAt = DateTime.parse(row['created_at'] as String);
+        return {
+          'id': row['id'] as String,
+          'theme': row['theme'] ?? 'Événement',
+          'date': eventDate,
+          'lieu': row['lieu'] ?? '',
+          'createdAt': createdAt,
+        };
+      }).toList();
+
+      filtered.sort((a, b) {
+        final ta = a['createdAt'] as DateTime;
+        final tb = b['createdAt'] as DateTime;
+        return tb.compareTo(ta);
+      });
+
+      return filtered;
     });
   }
 
@@ -582,9 +633,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
             final nom = user['nom'] as String;
             final email = user['email'] as String;
             final phone = user['phone'] as String;
-            final createdAt = user['createdAt'] as Timestamp?;
+            final createdAt = user['createdAt'] as DateTime?;
             final formattedDate = createdAt != null
-                ? DateFormat('dd/MM/yyyy HH:mm').format(createdAt.toDate())
+                ? DateFormat('dd/MM/yyyy HH:mm').format(createdAt)
                 : 'Date inconnue';
 
             return Card(
@@ -754,9 +805,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
             final member = sorted[index];
             final memberId = member['id'] as String;
             final isRead = _readNewMemberIds.contains(memberId);
-            final approvedAt = member['approvedAt'] as Timestamp?;
+            final approvedAt = member['approvedAt'] as DateTime?;
             final formattedDate = approvedAt != null
-                ? DateFormat('dd/MM/yyyy').format(approvedAt.toDate())
+                ? DateFormat('dd/MM/yyyy').format(approvedAt)
                 : 'Date inconnue';
 
             return Opacity(
@@ -888,9 +939,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
           itemBuilder: (context, index) {
             final msg = sorted[index];
             final isRead = _readMessageIds.contains(msg['id'] as String);
-            final timestamp = msg['timestamp'] as Timestamp?;
+            final timestamp = msg['timestamp'] as DateTime?;
             final formattedDate = timestamp != null
-                ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp.toDate())
+                ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp)
                 : 'Date inconnue';
 
             final iconColor = isRead

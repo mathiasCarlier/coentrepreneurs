@@ -2,8 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -290,7 +289,7 @@ class _EventCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              
+
               // Capacité et Inscrits
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -316,7 +315,7 @@ class _EventCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   // Barre de progression
                   Expanded(
                     child: Padding(
@@ -351,7 +350,7 @@ class _EventCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   // Indicateur Complet
                   if (event.isFull)
                     Container(
@@ -399,7 +398,7 @@ class _EventCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              
+
               // Indication "Cliquez pour voir les détails"
               const SizedBox(height: 12),
               Align(
@@ -729,7 +728,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                                       height: 180,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => Container(
+                                      errorBuilder: (_, __, ___) => Container(
                                         height: 60,
                                         color: Colors.grey[200],
                                         child: const Center(child: Icon(Icons.broken_image)),
@@ -831,7 +830,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                         ],
                       ),
 
-                    // 🎯 SECTION INVITÉS - Affichée quand l'événement est en cours
+                    // SECTION INVITÉS - Affichée quand l'événement est en cours
                     if (_event.isStarted)
                       Column(
                         children: [
@@ -1239,21 +1238,24 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
       final userIds = widget.userIds;
       if (userIds.isEmpty) return [];
 
-      final firestore = FirebaseFirestore.instance;
+      final supabase = Supabase.instance.client;
       final users = <user_model.User>[];
 
       for (final userId in userIds) {
         try {
-          final doc = await firestore.collection('users').doc(userId).get();
-          if (doc.exists) {
-            final data = doc.data()!;
+          final response = await supabase
+              .from('users')
+              .select()
+              .eq('id', userId)
+              .maybeSingle();
+          if (response != null) {
             users.add(user_model.User(
               uid: userId,
-              email: data['email'] ?? '',
-              nom: data['nom'] ?? 'Inconnu',
-              prenom: data['prenom'] ?? '',
-              role: _stringToUserRole(data['role']),
-              phone: data['telephone'],
+              email: response['email'] ?? '',
+              nom: response['nom'] ?? 'Inconnu',
+              prenom: response['prenom'] ?? '',
+              role: _stringToUserRole(response['role'] ?? ''),
+              phone: response['telephone'],
             ));
           }
         } catch (e) {
@@ -1341,7 +1343,7 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
               itemBuilder: (context, index) {
                 final user = participants[index];
                 final isConfirmed = widget.confirmedIds.contains(user.uid);
-                
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Container(
@@ -1535,10 +1537,14 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     });
   }
 
-  Future<String> _uploadBytes(Uint8List bytes, String path) async {
-    final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putData(bytes);
-    return await ref.getDownloadURL();
+  Future<String> _uploadBytes(Uint8List bytes, String fileName, String contentType) async {
+    final storage = Supabase.instance.client.storage.from('events');
+    await storage.uploadBinary(
+      fileName,
+      bytes,
+      fileOptions: FileOptions(contentType: contentType, upsert: true),
+    );
+    return storage.getPublicUrl(fileName);
   }
 
   Future<void> _pickDate() async {
@@ -1591,9 +1597,11 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       if (_imageBytes != null) {
         final ts = DateTime.now().millisecondsSinceEpoch;
         final ext = _imageExtension ?? 'jpg';
+        final fileName = 'events_attachments/$ts.$ext';
         imageUrl = await _uploadBytes(
           _imageBytes!,
-          'events_attachments/$ts.$ext',
+          fileName,
+          'image/jpeg',
         );
       }
 
@@ -1603,9 +1611,11 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       if (_pickedFile != null && _pickedFile!.bytes != null) {
         final ts = DateTime.now().millisecondsSinceEpoch;
         fileName = _pickedFile!.name;
+        final storagePath = 'events_attachments/${ts}_$fileName';
         fileUrl = await _uploadBytes(
           _pickedFile!.bytes!,
-          'events_attachments/${ts}_$fileName',
+          storagePath,
+          'application/octet-stream',
         );
       }
 
@@ -1638,30 +1648,30 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         await widget.eventService.createEvent(event);
       } else {
         await widget.eventService.updateEvent(widget.event!.id, event);
-        // Nettoyer les champs Firestore supprimés
-        final toDelete = <String, dynamic>{};
+        // Nettoyer les champs supprimés via Supabase
+        final toNull = <String, dynamic>{};
         if (!_hasCollation && widget.event!.hasCollation) {
-          toDelete['collationMenuText'] = FieldValue.delete();
-          toDelete['collationParticipants'] = FieldValue.delete();
+          toNull['collation_menu_text'] = null;
+          toNull['collation_participants'] = null;
         }
         if (imageUrl == null && widget.event!.imageUrl != null) {
-          toDelete['imageUrl'] = FieldValue.delete();
+          toNull['image_url'] = null;
         }
         if (fileUrl == null && widget.event!.fileUrl != null) {
-          toDelete['fileUrl'] = FieldValue.delete();
-          toDelete['fileName'] = FieldValue.delete();
+          toNull['file_url'] = null;
+          toNull['file_name'] = null;
         }
         if (_descriptionController.text.trim().isEmpty && widget.event!.description != null) {
-          toDelete['description'] = FieldValue.delete();
+          toNull['description'] = null;
         }
         if (_linkController.text.trim().isEmpty && widget.event!.linkUrl != null) {
-          toDelete['linkUrl'] = FieldValue.delete();
+          toNull['link_url'] = null;
         }
-        if (toDelete.isNotEmpty) {
-          await FirebaseFirestore.instance
-              .collection('events')
-              .doc(widget.event!.id)
-              .update(toDelete);
+        if (toNull.isNotEmpty) {
+          await Supabase.instance.client
+              .from('events')
+              .update(toNull)
+              .eq('id', widget.event!.id);
         }
       }
 
@@ -2022,4 +2032,3 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     );
   }
 }
-

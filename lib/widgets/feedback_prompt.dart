@@ -2,8 +2,7 @@
 // Version CORRIGÉE - Compatible Web + Mobile
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/feedback_service.dart';
@@ -59,31 +58,31 @@ class _FeedbackPromptState extends State<FeedbackPrompt> {
     }
     debugPrint('   ✅ Événement terminé');
 
-    // 2️⃣ Récupérer l'utilisateur actuel via Firebase Auth
-    final currentFirebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (currentFirebaseUser == null) {
+    // 2️⃣ Récupérer l'utilisateur actuel via Supabase Auth
+    final supabaseUser = Supabase.instance.client.auth.currentUser;
+    if (supabaseUser == null) {
       debugPrint('   ❌ Utilisateur non connecté');
       return;
     }
-    debugPrint('   ✅ Utilisateur connecté: ${currentFirebaseUser.email}');
+    debugPrint('   ✅ Utilisateur connecté: ${supabaseUser.email}');
 
-    // 3️⃣ Récupérer les infos complètes de l'utilisateur depuis Firestore
+    // 3️⃣ Récupérer les infos complètes de l'utilisateur depuis la table users
     user_model.User? currentUser;
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentFirebaseUser.uid)
-          .get();
+      final data = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', supabaseUser.id)
+          .maybeSingle();
 
-      if (doc.exists) {
-        final data = doc.data()!;
+      if (data != null) {
         currentUser = user_model.User(
-          uid: currentFirebaseUser.uid,
-          email: data['email'] ?? currentFirebaseUser.email ?? '',
+          uid: supabaseUser.id,
+          email: data['email'] ?? supabaseUser.email ?? '',
           nom: data['nom'] ?? 'Inconnu',
           prenom: data['prenom'] ?? '',
           role: _stringToUserRole(data['role'] ?? 'adherent'),
-          phone: data['telephone'],
+          phone: data['phone'],
         );
         debugPrint('   ✅ Utilisateur trouvé: ${currentUser.prenom} ${currentUser.nom}');
       }

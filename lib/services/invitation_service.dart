@@ -1,15 +1,14 @@
-// services/invitation_service.dart - VERSION CORRIGÉE
-// Ajoute automatiquement l'invité à event.registeredUserIds
+// services/invitation_service.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/invitation.dart';
 
 class InvitationService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   // ========================================
-  // 📝 CRÉER UNE INVITATION SIMPLE
+  // CRÉER UNE INVITATION SIMPLE
   // ========================================
 
   Future<void> createInvitation({
@@ -20,9 +19,8 @@ class InvitationService {
     required String invitedUserNom,
   }) async {
     try {
-      final docRef = _firestore.collection('invitations').doc();
       final invitation = Invitation(
-        id: docRef.id,
+        id: '',
         eventId: eventId,
         invitedByUserId: invitedByUserId,
         invitedUserEmail: invitedUserEmail,
@@ -31,28 +29,25 @@ class InvitationService {
         status: InvitationStatus.pending,
         createdAt: DateTime.now(),
       );
-      await docRef.set(invitation.toMap());
+      await _supabase.from('invitations').insert(invitation.toMap());
     } catch (e) {
       throw Exception('Erreur lors de la création de l\'invitation: $e');
     }
   }
 
   // ========================================
-  // ✨ CRÉER UTILISATEURS + INVITATIONS + AJOUTER À L'ÉVÉNEMENT
+  // CRÉER INVITATIONS AVEC INSCRIPTION À L'ÉVÉNEMENT
   // ========================================
 
-  /// Crée les utilisateurs invités et les invitations
-  /// ✅ NOUVEAU: Ajoute aussi l'invité à event.registeredUserIds
+  /// Crée les invitations et inscrit automatiquement les invités à l'événement
+  /// si leur compte existe déjà dans la table users.
   Future<void> createInvitationsWithUsers({
     required String eventId,
     required String invitedByUserId,
     required List<Map<String, String>> invitations,
   }) async {
     try {
-      debugPrint('🚀 Création de ${invitations.length} invitation(s) avec utilisateurs...');
-      
-      final batch = _firestore.batch();
-      final List<String> newUserIds = []; // ✅ AJOUTÉ: Tracker les nouveaux users
+      debugPrint('🚀 Création de ${invitations.length} invitation(s)...');
 
       for (final inv in invitations) {
         final email = inv['email']?.toLowerCase().trim() ?? '';
@@ -63,78 +58,38 @@ class InvitationService {
           throw Exception('Données invalides: email, prenom et nom sont obligatoires');
         }
 
-        debugPrint('\n📝 Traitement: $prenom $nom ($email)');
+        debugPrint('📝 Traitement: $prenom $nom ($email)');
 
-        // 1️⃣ Vérifier si l'utilisateur existe déjà
-        debugPrint('   1️⃣ Vérification utilisateur...');
-        final existingUsers = await _firestore
-            .collection('users')
-            .where('email', isEqualTo: email)
-            .get();
+        // Créer l'invitation
+        await _supabase.from('invitations').insert({
+          'event_id': eventId,
+          'invited_by_user_id': invitedByUserId,
+          'invited_user_email': email,
+          'invited_user_prenom': prenom,
+          'invited_user_nom': nom,
+          'status': 'pending',
+        });
 
-        String userId;
+        // Si l'utilisateur a déjà un compte, l'inscrire directement à l'événement
+        final existingUser = await _supabase
+            .from('users')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle();
 
-        if (existingUsers.docs.isNotEmpty) {
-          // Utilisateur existe déjà
-          userId = existingUsers.docs.first.id;
-          debugPrint('   ✅ Utilisateur existe: $userId');
-        } else {
-          // Créer un nouvel utilisateur avec rôle "invite"
-          debugPrint('   📝 Création nouvel utilisateur...');
-          final newUserRef = _firestore.collection('users').doc();
-          userId = newUserRef.id;
-
-          final userData = {
-            'email': email,
-            'prenom': prenom.trim(),
-            'nom': nom.trim(),
-            'role': 'invite', // ✅ Rôle invite
-            'telephone': '',
-            'createdAt': FieldValue.serverTimestamp(),
-            'isActive': true,
-          };
-
-          batch.set(newUserRef, userData);
-          newUserIds.add(userId); // ✅ AJOUTÉ: Tracker le nouvel user
-          debugPrint('   ✅ Utilisateur créé: $userId avec email: $email');
-        }
-
-        // 2️⃣ Créer l'invitation liée à cet utilisateur
-        debugPrint('   2️⃣ Création invitation...');
-        final invitationRef = _firestore.collection('invitations').doc();
-
-        final invitation = Invitation(
-          id: invitationRef.id,
-          eventId: eventId,
-          invitedByUserId: invitedByUserId,
-          invitedUserEmail: email,
-          invitedUserPrenom: prenom,
-          invitedUserNom: nom,
-          status: InvitationStatus.pending,
-          createdAt: DateTime.now(),
-        );
-
-        batch.set(invitationRef, invitation.toMap());
-        debugPrint('   ✅ Invitation créée: ${invitationRef.id}');
-      }
-
-      debugPrint('\n⏳ Validation du batch...');
-      await batch.commit();
-      debugPrint('✅ Batch commit réussi - ${invitations.length} invitation(s) créée(s)');
-
-      // ✅ AJOUTÉ: Ajouter les nouveaux utilisateurs à event.registeredUserIds
-      if (newUserIds.isNotEmpty) {
-        debugPrint('\n📌 Ajout des nouveaux utilisateurs à event.registeredUserIds...');
-        for (final userId in newUserIds) {
-          debugPrint('   ➕ Ajout de $userId à registeredUserIds');
-          await _firestore.collection('events').doc(eventId).update({
-            'registeredUserIds': FieldValue.arrayUnion([userId]),
+        if (existingUser != null) {
+          final userId = existingUser['id'] as String;
+          debugPrint('   ✅ Utilisateur existant trouvé: $userId');
+          // Upsert pour éviter les doublons
+          await _supabase.from('registrations').upsert({
+            'event_id': eventId,
+            'user_id': userId,
+            'status': 'registered',
           });
         }
-        debugPrint('✅ Utilisateurs ajoutés à l\'événement');
       }
 
-      debugPrint('\n✅ Invitations créées avec succès!\n');
+      debugPrint('✅ ${invitations.length} invitation(s) créée(s) avec succès!');
     } catch (e) {
       debugPrint('❌ Erreur: $e');
       throw Exception('Erreur lors de la création des invitations: $e');
@@ -142,80 +97,50 @@ class InvitationService {
   }
 
   // ========================================
-  // 🔄 CRÉER INVITATIONS (ancien - compatibilité)
-  // ========================================
-
-  Future<void> createInvitations({
-    required String eventId,
-    required String invitedByUserId,
-    required List<Map<String, String>> invitations,
-  }) async {
-    try {
-      final batch = _firestore.batch();
-      for (final inv in invitations) {
-        final docRef = _firestore.collection('invitations').doc();
-        final invitation = Invitation(
-          id: docRef.id,
-          eventId: eventId,
-          invitedByUserId: invitedByUserId,
-          invitedUserEmail: inv['email'] ?? '',
-          invitedUserPrenom: inv['prenom'] ?? '',
-          invitedUserNom: inv['nom'] ?? '',
-          status: InvitationStatus.pending,
-          createdAt: DateTime.now(),
-        );
-        batch.set(docRef, invitation.toMap());
-      }
-      await batch.commit();
-    } catch (e) {
-      throw Exception('Erreur lors de la création des invitations: $e');
-    }
-  }
-
-  // ========================================
-  // 🔍 RÉCUPÉRER LES INVITATIONS
+  // RÉCUPÉRER LES INVITATIONS
   // ========================================
 
   Future<List<Invitation>> getReceivedInvitations(String userEmail) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('invitedUserEmail', isEqualTo: userEmail)
-          .get();
-      return snapshot.docs.map((doc) => Invitation.fromMap(doc.data())).toList();
+      final data = await _supabase
+          .from('invitations')
+          .select()
+          .eq('invited_user_email', userEmail);
+      return (data as List).map((e) => Invitation.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des invitations: $e');
     }
   }
 
   Stream<List<Invitation>> getReceivedInvitationsStream(String userEmail) {
-    return _firestore
-        .collection('invitations')
-        .where('invitedUserEmail', isEqualTo: userEmail)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Invitation.fromMap(doc.data())).toList());
+    return _supabase
+        .from('invitations')
+        .stream(primaryKey: ['id'])
+        .eq('invited_user_email', userEmail)
+        .map((data) => data
+            .map((e) => Invitation.fromMap(e))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
   }
 
-  /// Récupérer les invitations pour un événement (stream temps réel)
   Stream<List<Invitation>> getEventInvitationsStream(String eventId) {
-    return _firestore
-        .collection('invitations')
-        .where('eventId', isEqualTo: eventId)
-        .orderBy('createdAt', descending: false)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Invitation.fromMap(doc.data())).toList());
+    return _supabase
+        .from('invitations')
+        .stream(primaryKey: ['id'])
+        .eq('event_id', eventId)
+        .map((data) => data
+            .map((e) => Invitation.fromMap(e))
+            .toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
   }
 
   Future<List<Invitation>> getSentInvitations(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('invitedByUserId', isEqualTo: userId)
-          .get();
-      return snapshot.docs.map((doc) => Invitation.fromMap(doc.data())).toList();
+      final data = await _supabase
+          .from('invitations')
+          .select()
+          .eq('invited_by_user_id', userId);
+      return (data as List).map((e) => Invitation.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des invitations envoyées: $e');
     }
@@ -223,11 +148,11 @@ class InvitationService {
 
   Future<List<Invitation>> getEventInvitations(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('eventId', isEqualTo: eventId)
-          .get();
-      return snapshot.docs.map((doc) => Invitation.fromMap(doc.data())).toList();
+      final data = await _supabase
+          .from('invitations')
+          .select()
+          .eq('event_id', eventId);
+      return (data as List).map((e) => Invitation.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des invitations de l\'événement: $e');
     }
@@ -235,23 +160,27 @@ class InvitationService {
 
   Future<Invitation?> getInvitation(String invitationId) async {
     try {
-      final doc = await _firestore.collection('invitations').doc(invitationId).get();
-      return doc.exists ? Invitation.fromMap(doc.data()!) : null;
+      final data = await _supabase
+          .from('invitations')
+          .select()
+          .eq('id', invitationId)
+          .maybeSingle();
+      return data != null ? Invitation.fromMap(data) : null;
     } catch (e) {
       throw Exception('Erreur lors de la récupération de l\'invitation: $e');
     }
   }
 
   // ========================================
-  // ✅ ACCEPTER/REFUSER UNE INVITATION
+  // ACCEPTER / REFUSER UNE INVITATION
   // ========================================
 
   Future<void> acceptInvitation(String invitationId) async {
     try {
-      await _firestore.collection('invitations').doc(invitationId).update({
+      await _supabase.from('invitations').update({
         'status': 'accepted',
-        'respondedAt': DateTime.now(),
-      });
+        'responded_at': DateTime.now().toIso8601String(),
+      }).eq('id', invitationId);
     } catch (e) {
       throw Exception('Erreur lors de l\'acceptation de l\'invitation: $e');
     }
@@ -259,28 +188,27 @@ class InvitationService {
 
   Future<void> declineInvitation(String invitationId) async {
     try {
-      await _firestore.collection('invitations').doc(invitationId).update({
+      await _supabase.from('invitations').update({
         'status': 'declined',
-        'respondedAt': DateTime.now(),
-      });
+        'responded_at': DateTime.now().toIso8601String(),
+      }).eq('id', invitationId);
     } catch (e) {
       throw Exception('Erreur lors du refus de l\'invitation: $e');
     }
   }
 
   // ========================================
-  // 📊 STATISTIQUES
+  // STATISTIQUES
   // ========================================
 
   Future<int> getPendingInvitationsCount(String userEmail) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('invitedUserEmail', isEqualTo: userEmail)
-          .where('status', isEqualTo: 'pending')
-          .count()
-          .get();
-      return snapshot.count ?? 0;
+      final data = await _supabase
+          .from('invitations')
+          .select('id')
+          .eq('invited_user_email', userEmail)
+          .eq('status', 'pending');
+      return (data as List).length;
     } catch (e) {
       throw Exception('Erreur lors du comptage des invitations: $e');
     }
@@ -288,25 +216,24 @@ class InvitationService {
 
   Future<int> getAcceptedInvitationsCount(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('eventId', isEqualTo: eventId)
-          .where('status', isEqualTo: 'accepted')
-          .count()
-          .get();
-      return snapshot.count ?? 0;
+      final data = await _supabase
+          .from('invitations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('status', 'accepted');
+      return (data as List).length;
     } catch (e) {
       throw Exception('Erreur lors du comptage des invitations acceptées: $e');
     }
   }
 
   // ========================================
-  // 🗑️ SUPPRIMER
+  // SUPPRIMER
   // ========================================
 
   Future<void> deleteInvitation(String invitationId) async {
     try {
-      await _firestore.collection('invitations').doc(invitationId).delete();
+      await _supabase.from('invitations').delete().eq('id', invitationId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression de l\'invitation: $e');
     }
@@ -314,33 +241,25 @@ class InvitationService {
 
   Future<void> deleteEventInvitations(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('eventId', isEqualTo: eventId)
-          .get();
-      final batch = _firestore.batch();
-      for (final doc in snapshot.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
+      await _supabase.from('invitations').delete().eq('event_id', eventId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression des invitations de l\'événement: $e');
     }
   }
 
   // ========================================
-  // 🔍 VÉRIFICATIONS
+  // VÉRIFICATIONS
   // ========================================
 
   Future<bool> hasPendingInvitation(String eventId, String email) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('eventId', isEqualTo: eventId)
-          .where('invitedUserEmail', isEqualTo: email)
-          .where('status', isEqualTo: 'pending')
-          .get();
-      return snapshot.docs.isNotEmpty;
+      final data = await _supabase
+          .from('invitations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('invited_user_email', email)
+          .eq('status', 'pending');
+      return (data as List).isNotEmpty;
     } catch (e) {
       throw Exception('Erreur lors de la vérification de l\'invitation: $e');
     }
@@ -348,13 +267,13 @@ class InvitationService {
 
   Future<bool> hasAcceptedInvitation(String eventId, String email) async {
     try {
-      final snapshot = await _firestore
-          .collection('invitations')
-          .where('eventId', isEqualTo: eventId)
-          .where('invitedUserEmail', isEqualTo: email)
-          .where('status', isEqualTo: 'accepted')
-          .get();
-      return snapshot.docs.isNotEmpty;
+      final data = await _supabase
+          .from('invitations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('invited_user_email', email)
+          .eq('status', 'accepted');
+      return (data as List).isNotEmpty;
     } catch (e) {
       throw Exception('Erreur lors de la vérification de l\'acceptation: $e');
     }

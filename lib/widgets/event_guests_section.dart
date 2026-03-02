@@ -2,7 +2,7 @@
 // Affiche les ADHÉRENTS INSCRITS à l'événement (pas les invités)
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 
 class EventGuestsSection extends StatefulWidget {
@@ -22,15 +22,13 @@ class EventGuestsSection extends StatefulWidget {
 }
 
 class _EventGuestsSectionState extends State<EventGuestsSection> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   /// Récupère les données des adhérents inscrits
   /// ✅ CORRIGÉ: Affiche les adhérents, pas les invités
   Future<List<Map<String, dynamic>>> _fetchRegisteredUsers() async {
     try {
       debugPrint('🔍 Récupération des adhérents inscrits: ${widget.registeredUserIds.length}');
 
-        if (widget.registeredUserIds.isEmpty) {
+      if (widget.registeredUserIds.isEmpty) {
         debugPrint('⚠️ Aucun adhérent inscrit');
         return [];
       }
@@ -39,10 +37,13 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
 
       for (final userId in widget.registeredUserIds) {
         try {
-          final userDoc = await _firestore.collection('users').doc(userId).get();
+          final userData = await Supabase.instance.client
+              .from('users')
+              .select()
+              .eq('id', userId)
+              .maybeSingle();
 
-          if (userDoc.exists) {
-            final userData = userDoc.data() ?? {};
+          if (userData != null) {
             debugPrint('✅ Adhérent trouvé: $userId');
 
             result.add({
@@ -53,7 +54,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
                 nom: userData['nom'] ?? 'Inconnu',
                 prenom: userData['prenom'] ?? '',
                 role: _stringToUserRole(userData['role'] ?? 'adherent'),
-                phone: userData['telephone'] ?? '',
+                phone: userData['phone'] ?? '',
               ),
             });
           } else {
@@ -124,10 +125,12 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
       try {
       debugPrint('🗑️ Retrait de l\'adhérent: $userId');
 
-        // ✅ Retirer l'adhérent de la liste registeredUserIds
-        await _firestore.collection('events').doc(widget.eventId).update({
-          'registeredUserIds': FieldValue.arrayRemove([userId]),
-        });
+        // ✅ Retirer l'adhérent de la table registrations
+        await Supabase.instance.client
+            .from('registrations')
+            .delete()
+            .eq('event_id', widget.eventId)
+            .eq('user_id', userId);
 
         debugPrint('✅ Adhérent retiré');
 

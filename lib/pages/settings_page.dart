@@ -1,9 +1,7 @@
 // pages/settings_page.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
@@ -23,13 +21,13 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _prenom;
   late TextEditingController _nom;
   late TextEditingController _phoneController;
-  
+
   // Contrôleurs pour les informations professionnelles
   late TextEditingController _companyNameController;
   late TextEditingController _skillsController;
   late TextEditingController _professionalAddressController;
   late TextEditingController _websiteController;
-  
+
   bool _isEditing = false;
   bool _isEditingPro = false;
   bool _isSaving = false;
@@ -42,41 +40,40 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _user = widget.user;
-    
+
     _prenom = TextEditingController(text: _user.prenom);
     _nom = TextEditingController(text: _user.nom);
     _phoneController = TextEditingController(text: _user.phone);
-    
+
     _companyNameController = TextEditingController(text: _user.companyName ?? '');
     _skillsController = TextEditingController(text: _user.skills ?? '');
     _professionalAddressController = TextEditingController(text: _user.professionalAddress ?? '');
     _websiteController = TextEditingController(text: _user.website ?? '');
-    
-    // Charger les données les plus récentes depuis Firestore
+
+    // Charger les données les plus récentes depuis Supabase
     _loadUserData();
   }
 
-  /// Charge les données de l'utilisateur depuis Firestore
+  /// Charge les données de l'utilisateur depuis Supabase
   Future<void> _loadUserData() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_user.uid)
-          .get();
+      final data = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('id', _user.uid)
+          .maybeSingle();
 
-      if (doc.exists && mounted) {
-        final data = doc.data() as Map<String, dynamic>;
-        
+      if (data != null && mounted) {
         setState(() {
           _user.prenom = data['prenom'] ?? '';
           _user.nom = data['nom'] ?? '';
           _user.phone = data['phone'] ?? '';
-          _user.companyName = data['companyName'] ?? '';
+          _user.companyName = data['company_name'] ?? '';
           _user.skills = data['skills'] ?? '';
-          _user.professionalAddress = data['professionalAddress'] ?? '';
+          _user.professionalAddress = data['professional_address'] ?? '';
           _user.website = data['website'] ?? '';
-          _user.shareProInfo = data['shareProInfo'] ?? false;
-          
+          _user.shareProInfo = data['share_pro_info'] ?? false;
+
           // Mettre à jour les contrôleurs aussi
           _prenom.text = _user.prenom;
           _nom.text = _user.nom;
@@ -136,20 +133,21 @@ class _SettingsPageState extends State<SettingsPage> {
 
     try {
       final fileName = '${_user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('profile_pictures')
-          .child(fileName);
+      final bytes = await _selectedPhoto!.readAsBytes();
 
-      final uploadTask = ref.putFile(_selectedPhoto!);
-      final snapshot = await uploadTask;
-      final photoUrl = await snapshot.ref.getDownloadURL();
+      await Supabase.instance.client.storage
+          .from('avatars')
+          .uploadBinary(fileName, bytes);
 
-      // Mettre à jour Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_user.uid)
-          .update({'photoUrl': photoUrl});
+      final photoUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+      // Mettre à jour Supabase
+      await Supabase.instance.client
+          .from('users')
+          .update({'photo_url': photoUrl})
+          .eq('id', _user.uid);
 
       // Mettre à jour l'objet local
       setState(() {
@@ -193,14 +191,14 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _isSaving = true);
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_user.uid)
+      await Supabase.instance.client
+          .from('users')
           .update({
             'prenom': _prenom.text.trim(),
             'nom': _nom.text.trim(),
             'phone': _phoneController.text.trim(),
-          });
+          })
+          .eq('id', _user.uid);
 
       // Mettre à jour l'objet _user
       _user.prenom = _prenom.text.trim();
@@ -237,16 +235,16 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _isSaving = true);
 
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_user.uid)
+      await Supabase.instance.client
+          .from('users')
           .update({
-            'companyName': _companyNameController.text.trim(),
+            'company_name': _companyNameController.text.trim(),
             'skills': _skillsController.text.trim(),
-            'professionalAddress': _professionalAddressController.text.trim(),
+            'professional_address': _professionalAddressController.text.trim(),
             'website': _websiteController.text.trim(),
-            'shareProInfo': _user.shareProInfo ?? false,
-          });
+            'share_pro_info': _user.shareProInfo ?? false,
+          })
+          .eq('id', _user.uid);
 
       // Mettre à jour l'objet _user
       _user.companyName = _companyNameController.text.trim();
@@ -282,12 +280,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _toggleShareProInfo() async {
     final newValue = !(_user.shareProInfo ?? false);
-    
+
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_user.uid)
-          .update({'shareProInfo': newValue});
+      await Supabase.instance.client
+          .from('users')
+          .update({'share_pro_info': newValue})
+          .eq('id', _user.uid);
 
       setState(() {
         _user.shareProInfo = newValue;
@@ -386,22 +384,22 @@ class _SettingsPageState extends State<SettingsPage> {
             });
 
             try {
-              final firebaseUser =
-                  firebase_auth.FirebaseAuth.instance.currentUser;
-              if (firebaseUser == null || firebaseUser.email == null) {
+              final supabaseUser =
+                  Supabase.instance.client.auth.currentUser;
+              if (supabaseUser == null || supabaseUser.email == null) {
                 throw 'Utilisateur non connecté.';
               }
 
               // Ré-authentification obligatoire avant changement de mot de passe
-              final credential =
-                  firebase_auth.EmailAuthProvider.credential(
-                email: firebaseUser.email!,
+              await Supabase.instance.client.auth.signInWithPassword(
+                email: supabaseUser.email!,
                 password: currentPwd,
               );
-              await firebaseUser.reauthenticateWithCredential(credential);
 
               // Mise à jour du mot de passe
-              await firebaseUser.updatePassword(newPwd);
+              await Supabase.instance.client.auth.updateUser(
+                UserAttributes(password: newPwd),
+              );
 
               if (dialogContext.mounted) {
                 Navigator.of(dialogContext).pop();
@@ -414,21 +412,21 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 );
               }
-            } on firebase_auth.FirebaseAuthException catch (e) {
+            } on AuthException catch (e) {
               String msg;
-              switch (e.code) {
-                case 'wrong-password':
-                case 'invalid-credential':
+              switch (e.message) {
+                case 'Invalid login credentials':
+                case 'invalid_credentials':
                   msg = 'Mot de passe actuel incorrect.';
                   break;
-                case 'weak-password':
+                case 'Password should be at least 6 characters':
                   msg = 'Le nouveau mot de passe est trop faible.';
                   break;
-                case 'too-many-requests':
+                case 'Email rate limit exceeded':
                   msg = 'Trop de tentatives. Réessayez plus tard.';
                   break;
                 default:
-                  msg = 'Erreur : ${e.message ?? e.code}';
+                  msg = 'Erreur : ${e.message}';
               }
               setDialogState(() => errorMessage = msg);
             } catch (e) {
@@ -1021,7 +1019,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Toggle pour partager les infos pro
           if (!_isEditingPro)
             Padding(

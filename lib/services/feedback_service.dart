@@ -1,14 +1,14 @@
 // services/feedback_service.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/feedback.dart';
 
 class FeedbackService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   // ========================================
-  // 📝 CRÉER/METTRE À JOUR UN FEEDBACK
+  // CRÉER / METTRE À JOUR UN FEEDBACK
   // ========================================
 
   Future<void> createFeedback({
@@ -22,9 +22,8 @@ class FeedbackService {
     required String whatYouLearned,
   }) async {
     try {
-      final docRef = _firestore.collection('feedbacks').doc();
       final feedback = Feedback(
-        id: docRef.id,
+        id: '',
         eventId: eventId,
         userId: userId,
         userEmail: userEmail,
@@ -36,8 +35,8 @@ class FeedbackService {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-      await docRef.set(feedback.toMap());
-      debugPrint('✅ Feedback créé: ${docRef.id}');
+      await _supabase.from('feedbacks').insert(feedback.toMap());
+      debugPrint('✅ Feedback créé');
     } catch (e) {
       throw Exception('Erreur lors de la création du feedback: $e');
     }
@@ -50,12 +49,12 @@ class FeedbackService {
     required String whatYouLearned,
   }) async {
     try {
-      await _firestore.collection('feedbacks').doc(feedbackId).update({
-        'whatYouLiked': whatYouLiked,
+      await _supabase.from('feedbacks').update({
+        'what_you_liked': whatYouLiked,
         'rating': rating,
-        'whatYouLearned': whatYouLearned,
-        'updatedAt': DateTime.now(),
-      });
+        'what_you_learned': whatYouLearned,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', feedbackId);
       debugPrint('✅ Feedback mis à jour: $feedbackId');
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du feedback: $e');
@@ -63,13 +62,17 @@ class FeedbackService {
   }
 
   // ========================================
-  // 🔍 RÉCUPÉRER LES FEEDBACKS
+  // RÉCUPÉRER LES FEEDBACKS
   // ========================================
 
   Future<Feedback?> getFeedback(String feedbackId) async {
     try {
-      final doc = await _firestore.collection('feedbacks').doc(feedbackId).get();
-      return doc.exists ? Feedback.fromMap(doc.data()!) : null;
+      final data = await _supabase
+          .from('feedbacks')
+          .select()
+          .eq('id', feedbackId)
+          .maybeSingle();
+      return data != null ? Feedback.fromMap(data) : null;
     } catch (e) {
       throw Exception('Erreur lors de la récupération du feedback: $e');
     }
@@ -77,15 +80,13 @@ class FeedbackService {
 
   Future<Feedback?> getUserEventFeedback(String eventId, String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('feedbacks')
-          .where('eventId', isEqualTo: eventId)
-          .where('userId', isEqualTo: userId)
-          .limit(1)
-          .get();
-      
-      if (snapshot.docs.isEmpty) return null;
-      return Feedback.fromMap(snapshot.docs.first.data());
+      final data = await _supabase
+          .from('feedbacks')
+          .select()
+          .eq('event_id', eventId)
+          .eq('user_id', userId)
+          .maybeSingle();
+      return data != null ? Feedback.fromMap(data) : null;
     } catch (e) {
       throw Exception('Erreur lors de la récupération du feedback utilisateur: $e');
     }
@@ -93,47 +94,44 @@ class FeedbackService {
 
   Future<List<Feedback>> getEventFeedbacks(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('feedbacks')
-          .where('eventId', isEqualTo: eventId)
-          .orderBy('createdAt', descending: true)
-          .get();
-      return snapshot.docs
-          .map((doc) => Feedback.fromMap(doc.data()))
-          .toList();
+      final data = await _supabase
+          .from('feedbacks')
+          .select()
+          .eq('event_id', eventId)
+          .order('created_at', ascending: false);
+      return (data as List).map((e) => Feedback.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des feedbacks: $e');
     }
   }
 
   Stream<List<Feedback>> getEventFeedbacksStream(String eventId) {
-    return _firestore
-        .collection('feedbacks')
-        .where('eventId', isEqualTo: eventId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Feedback.fromMap(doc.data())).toList());
+    return _supabase
+        .from('feedbacks')
+        .stream(primaryKey: ['id'])
+        .eq('event_id', eventId)
+        .map((data) => data
+            .map((e) => Feedback.fromMap(e))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
   }
 
   // ========================================
-  // 📊 STATISTIQUES
+  // STATISTIQUES
   // ========================================
 
   Future<double> getAverageRating(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('feedbacks')
-          .where('eventId', isEqualTo: eventId)
-          .get();
-      
-      if (snapshot.docs.isEmpty) return 0.0;
-      
+      final data = await _supabase
+          .from('feedbacks')
+          .select('rating')
+          .eq('event_id', eventId);
+      if ((data as List).isEmpty) return 0.0;
       double total = 0;
-      for (var doc in snapshot.docs) {
-        total += doc['rating'] ?? 0;
+      for (final row in data) {
+        total += (row['rating'] as num? ?? 0).toDouble();
       }
-      return total / snapshot.docs.length;
+      return total / data.length;
     } catch (e) {
       throw Exception('Erreur lors du calcul de la note moyenne: $e');
     }
@@ -141,24 +139,23 @@ class FeedbackService {
 
   Future<int> getFeedbackCount(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('feedbacks')
-          .where('eventId', isEqualTo: eventId)
-          .count()
-          .get();
-      return snapshot.count ?? 0;
+      final data = await _supabase
+          .from('feedbacks')
+          .select('id')
+          .eq('event_id', eventId);
+      return (data as List).length;
     } catch (e) {
       throw Exception('Erreur lors du comptage des feedbacks: $e');
     }
   }
 
   // ========================================
-  // 🗑️ SUPPRIMER
+  // SUPPRIMER
   // ========================================
 
   Future<void> deleteFeedback(String feedbackId) async {
     try {
-      await _firestore.collection('feedbacks').doc(feedbackId).delete();
+      await _supabase.from('feedbacks').delete().eq('id', feedbackId);
       debugPrint('✅ Feedback supprimé: $feedbackId');
     } catch (e) {
       throw Exception('Erreur lors de la suppression du feedback: $e');
@@ -167,16 +164,7 @@ class FeedbackService {
 
   Future<void> deleteEventFeedbacks(String eventId) async {
     try {
-      final snapshot = await _firestore
-          .collection('feedbacks')
-          .where('eventId', isEqualTo: eventId)
-          .get();
-      
-      final batch = _firestore.batch();
-      for (final doc in snapshot.docs) {
-        batch.delete(doc.reference);
-      }
-      await batch.commit();
+      await _supabase.from('feedbacks').delete().eq('event_id', eventId);
       debugPrint('✅ Feedbacks de l\'événement supprimés');
     } catch (e) {
       throw Exception('Erreur lors de la suppression des feedbacks: $e');
@@ -184,18 +172,17 @@ class FeedbackService {
   }
 
   // ========================================
-  // 🔍 VÉRIFICATIONS
+  // VÉRIFICATIONS
   // ========================================
 
   Future<bool> hasFeedback(String eventId, String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('feedbacks')
-          .where('eventId', isEqualTo: eventId)
-          .where('userId', isEqualTo: userId)
-          .limit(1)
-          .get();
-      return snapshot.docs.isNotEmpty;
+      final data = await _supabase
+          .from('feedbacks')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
+      return (data as List).isNotEmpty;
     } catch (e) {
       throw Exception('Erreur lors de la vérification du feedback: $e');
     }

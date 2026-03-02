@@ -1,6 +1,6 @@
 // pages/messages_page.dart (Optionnel - pour afficher tous les messages)
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,11 +22,22 @@ class _MessagesPageState extends State<MessagesPage> {
         elevation: 0,
         backgroundColor: isDark ? const Color(0xFF1a1a1a) : Colors.white,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('messages')
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: Supabase.instance.client
+            .from('messages')
+            .stream(primaryKey: ['id'])
+            .map((rows) {
+          final sorted = List<Map<String, dynamic>>.from(rows);
+          sorted.sort((a, b) {
+            final ta = a['created_at'] as String?;
+            final tb = b['created_at'] as String?;
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
+          });
+          return sorted;
+        }),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -38,7 +49,7 @@ class _MessagesPageState extends State<MessagesPage> {
             );
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -58,16 +69,17 @@ class _MessagesPageState extends State<MessagesPage> {
             );
           }
 
-          final messages = snapshot.data!.docs;
+          final messages = snapshot.data!;
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: messages.length,
             itemBuilder: (context, index) {
-              final messageDoc = messages[index];
-              final data = messageDoc.data() as Map<String, dynamic>;
+              final data = messages[index];
+              final messageId = data['id'] as String;
 
-              final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+              final createdAtRaw = data['created_at'] as String?;
+              final timestamp = createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
               final formattedDate = timestamp != null
                   ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp)
                   : 'Date inconnue';
@@ -82,7 +94,7 @@ class _MessagesPageState extends State<MessagesPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              data['userName'] ?? 'Utilisateur inconnu',
+                              data['user_name'] ?? 'Utilisateur inconnu',
                               style: Theme.of(context)
                                   .textTheme
                                   .titleSmall
@@ -125,12 +137,12 @@ class _MessagesPageState extends State<MessagesPage> {
                         children: [
                           _InfoRow(
                             label: 'Email:',
-                            value: data['userEmail'] ?? 'N/A',
+                            value: data['user_email'] ?? 'N/A',
                           ),
                           const SizedBox(height: 12),
                           _InfoRow(
                             label: 'Rôle:',
-                            value: _getRoleLabel(data['userRole'] ?? ''),
+                            value: _getRoleLabel(data['user_role'] ?? ''),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -179,7 +191,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                           ),
                           // Lien
-                          if (data['linkUrl'] != null) ...[
+                          if (data['link_url'] != null) ...[
                             const SizedBox(height: 16),
                             Text(
                               'Lien:',
@@ -187,7 +199,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                             const SizedBox(height: 6),
                             InkWell(
-                              onTap: () => _launchUrl(data['linkUrl'] as String),
+                              onTap: () => _launchUrl(data['link_url'] as String),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 width: double.infinity,
@@ -203,7 +215,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        data['linkUrl'] as String,
+                                        data['link_url'] as String,
                                         style: TextStyle(
                                           color: Colors.blue[700],
                                           decoration: TextDecoration.underline,
@@ -219,7 +231,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                           ],
                           // Image
-                          if (data['imageUrl'] != null) ...[
+                          if (data['image_url'] != null) ...[
                             const SizedBox(height: 16),
                             Text(
                               'Photo:',
@@ -227,11 +239,11 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                             const SizedBox(height: 6),
                             GestureDetector(
-                              onTap: () => _launchUrl(data['imageUrl'] as String),
+                              onTap: () => _launchUrl(data['image_url'] as String),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: Image.network(
-                                  data['imageUrl'] as String,
+                                  data['image_url'] as String,
                                   height: 200,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
@@ -252,7 +264,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                           ],
                           // Fichier
-                          if (data['fileUrl'] != null) ...[
+                          if (data['file_url'] != null) ...[
                             const SizedBox(height: 16),
                             Text(
                               'Fichier:',
@@ -260,7 +272,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             ),
                             const SizedBox(height: 6),
                             InkWell(
-                              onTap: () => _launchUrl(data['fileUrl'] as String),
+                              onTap: () => _launchUrl(data['file_url'] as String),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
                                 padding: const EdgeInsets.all(12),
@@ -275,7 +287,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        data['fileName'] as String? ?? 'Télécharger le fichier',
+                                        data['file_name'] as String? ?? 'Télécharger le fichier',
                                         style: const TextStyle(fontSize: 13),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -292,7 +304,7 @@ class _MessagesPageState extends State<MessagesPage> {
                             children: [
                               if (data['read'] != true)
                                 ElevatedButton.icon(
-                                  onPressed: () => _markAsRead(messageDoc.id),
+                                  onPressed: () => _markAsRead(messageId),
                                   icon: const Icon(Icons.check, size: 18, color: Colors.white),
                                   label: const Text(
                                     'Marquer comme lu',
@@ -305,7 +317,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                 )
                               else if (data['published'] != true)
                                 ElevatedButton.icon(
-                                  onPressed: () => _publishMessage(messageDoc.id),
+                                  onPressed: () => _publishMessage(messageId),
                                   icon: const Icon(Icons.campaign, size: 18, color: Colors.white),
                                   label: const Text(
                                     'Publier',
@@ -341,7 +353,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                   ),
                                 ),
                               ElevatedButton.icon(
-                                onPressed: () => _deleteMessage(messageDoc.id),
+                                onPressed: () => _deleteMessage(messageId),
                                 icon: const Icon(Icons.delete, size: 18, color: Colors.white),
                                 label: const Text(
                                   'Supprimer',
@@ -375,12 +387,11 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
-  Future<void> _publishMessage(String docId) async {
+  Future<void> _publishMessage(String id) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('messages')
-          .doc(docId)
-          .update({'published': true});
+      await Supabase.instance.client
+          .from('messages')
+          .update({'published': true}).eq('id', id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -402,12 +413,11 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
-  Future<void> _markAsRead(String docId) async {
+  Future<void> _markAsRead(String id) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('messages')
-          .doc(docId)
-          .update({'read': true});
+      await Supabase.instance.client
+          .from('messages')
+          .update({'read': true}).eq('id', id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -429,7 +439,7 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
-  Future<void> _deleteMessage(String docId) async {
+  Future<void> _deleteMessage(String id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -465,10 +475,9 @@ class _MessagesPageState extends State<MessagesPage> {
 
     if (confirm == true) {
       try {
-        await FirebaseFirestore.instance
-            .collection('messages')
-            .doc(docId)
-            .delete();
+        await Supabase.instance.client
+            .from('messages')
+            .delete().eq('id', id);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -1,7 +1,6 @@
 // pages/admin_users_page.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -33,15 +32,13 @@ class _AdminUsersPageState extends State<AdminUsersPage>
   /// On filtre en Dart pour éviter tout problème de format stocké ('adherent'
   /// vs 'UserRole.adherent').
   Stream<List<Map<String, dynamic>>> _getUsersStream(String targetRole) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => {'id': doc.id, ...doc.data()})
+    return Supabase.instance.client
+        .from('users')
+        .stream(primaryKey: ['id'])
+        .map((data) {
+      return data
           .where((u) {
             final stored = (u['role'] as String? ?? '').toLowerCase();
-            // Accepte 'adherent' et 'userrole.adherent'
             return stored.contains(targetRole.toLowerCase());
           })
           .toList()
@@ -54,17 +51,15 @@ class _AdminUsersPageState extends State<AdminUsersPage>
   }
 
   Future<void> _changeRole(String uid, String newRole) async {
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .update({'role': newRole});
+    await Supabase.instance.client
+        .from('users')
+        .update({'role': newRole}).eq('id', uid);
   }
 
   Future<void> _toggleBlock(String uid, bool isCurrentlyBlocked) async {
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .update({'blocked': !isCurrentlyBlocked});
+    await Supabase.instance.client
+        .from('users')
+        .update({'blocked': !isCurrentlyBlocked}).eq('id', uid);
   }
 
   void _showRoleDialog(String uid, String currentRole, String userName) {
@@ -252,7 +247,7 @@ class _AdminUsersPageState extends State<AdminUsersPage>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final currentUid = Supabase.instance.client.auth.currentUser?.id;
 
     return Scaffold(
       appBar: AppBar(

@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:badges/badges.dart' as badges;
 
 import 'package:coentrepreneurs/services/auth_service.dart';
@@ -15,15 +14,14 @@ import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/widgets/event_card_avec_inscription.dart';
 import 'package:coentrepreneurs/widgets/feedback_prompt.dart';
-import 'package:coentrepreneurs/pages/settings_page.dart'; 
+import 'package:coentrepreneurs/pages/settings_page.dart';
 import 'package:coentrepreneurs/pages/messages_page.dart';
-import 'package:coentrepreneurs/pages/admin_events_page.dart'; 
-import 'package:coentrepreneurs/pages/faq_page.dart'; 
+import 'package:coentrepreneurs/pages/admin_events_page.dart';
+import 'package:coentrepreneurs/pages/faq_page.dart';
 import 'package:coentrepreneurs/pages/directory_page_dynamic.dart';
 import 'package:coentrepreneurs/pages/notifications_page.dart';
 import 'package:coentrepreneurs/pages/all_events_page.dart';
 import 'package:coentrepreneurs/pages/admin_users_page.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
@@ -42,8 +40,15 @@ class _HomePageState extends State<HomePage> {
   bool _cguCheckCompleted = false;
   bool _userAcceptedCGU = false;
 
-  StreamSubscription<DocumentSnapshot>? _blockedSub;
+  // Supabase realtime subscription for blocked status
+  RealtimeChannel? _blockedChannel;
   String? _listenedUid;
+
+  // Stream controller for approval status polling
+  StreamController<Map<String, dynamic>?>? _approvalStreamController;
+  Timer? _approvalPollingTimer;
+  Timer? _notificationPollingTimer;
+  StreamController<int>? _notificationStreamController;
 
   @override
   void initState() {
@@ -54,34 +59,49 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _blockedSub?.cancel();
+    _blockedChannel?.unsubscribe();
+    _approvalPollingTimer?.cancel();
+    _approvalStreamController?.close();
+    _notificationPollingTimer?.cancel();
+    _notificationStreamController?.close();
     super.dispose();
   }
 
-  /// Démarre un listener Firestore temps réel pour détecter un blocage admin.
+  /// Démarre un listener Supabase Realtime pour détecter un blocage admin.
   void _startBlockedListener(String uid) {
     if (_listenedUid == uid) return;
-    _blockedSub?.cancel();
+    _blockedChannel?.unsubscribe();
     _listenedUid = uid;
-    _blockedSub = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .listen((doc) {
-      if (doc.data()?['blocked'] == true && mounted) {
-        _blockedSub?.cancel();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Votre accès a été bloqué par un administrateur.',
-            ),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+
+    _blockedChannel = Supabase.instance.client
+        .channel('blocked_user_$uid')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'users',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: uid,
           ),
-        );
-        Future.delayed(const Duration(seconds: 1), _logout);
-      }
-    });
+          callback: (payload) {
+            final newRecord = payload.newRecord;
+            if (newRecord['blocked'] == true && mounted) {
+              _blockedChannel?.unsubscribe();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Votre accès a été bloqué par un administrateur.',
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 4),
+                ),
+              );
+              Future.delayed(const Duration(seconds: 1), _logout);
+            }
+          },
+        )
+        .subscribe();
   }
 
   Future<void> _initializeDefaultEvents() async {
@@ -116,10 +136,10 @@ class _HomePageState extends State<HomePage> {
         onAccepted: () async {
           try {
             await _cguService.acceptCGU(userId);
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(userId)
-                .update({'approvalStatus': 'pending'});
+            await Supabase.instance.client
+                .from('users')
+                .update({'approval_status': 'pending'})
+                .eq('id', userId);
             if (mounted) {
               setState(() => _userAcceptedCGU = true);
               messenger.showSnackBar(
@@ -190,104 +210,161 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Stream combiné pour le badge total
-  Stream<int> _getTotalNotificationsCount() {
-    return FirebaseFirestore.instance.collection('users').snapshots().asyncMap((_) async {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return 0;
+  /// Returns a stream that emits the user's approval status map from Supabase
+  /// by polling every 10 seconds.
+  Stream<Map<String, dynamic>?> _getUserApprovalStream(String uid) {
+    _approvalStreamController?.close();
+    _approvalPollingTimer?.cancel();
 
-      // Récupérer les données de l'utilisateur courant (rôle + IDs lus)
-      final currentUserDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final currentUserData = currentUserDoc.data() ?? {};
-      final role = currentUserData['role'] as String? ?? '';
-      final isAdmin = role == 'admin' || role.contains('admin');
+    final controller = StreamController<Map<String, dynamic>?>.broadcast();
+    _approvalStreamController = controller;
 
-      Set<String> readIds = {};
-      Set<String> readMessageIds = {};
-      final eventIds = currentUserData['readNotificationEventIds'];
-      if (eventIds is List) readIds = eventIds.cast<String>().toSet();
-      final msgIds = currentUserData['readNotificationMessageIds'];
-      if (msgIds is List) readMessageIds = msgIds.cast<String>().toSet();
-
-      // Compter les adhésions selon le rôle
-      int adherentsCount = 0;
-      if (isAdmin) {
-        // Admin : nombre de demandes d'adhésion en attente
-        final pending = await FirebaseFirestore.instance
-            .collection('users')
-            .where('approvalStatus', isEqualTo: 'pending')
-            .get();
-        adherentsCount = pending.docs.length;
-      } else {
-        // Utilisateur : nouveaux membres approuvés (7 derniers jours) non vus
-        final readMemberIds = currentUserData['readNewMemberIds'];
-        final Set<String> readMemberIdSet = {};
-        if (readMemberIds is List) {
-          readMemberIdSet.addAll(readMemberIds.cast<String>());
+    Future<void> fetch() async {
+      if (controller.isClosed) return;
+      try {
+        final data = await Supabase.instance.client
+            .from('users')
+            .select('approval_status')
+            .eq('id', uid)
+            .maybeSingle();
+        if (!controller.isClosed) {
+          controller.add(data);
         }
-        final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-        final approvedMembers = await FirebaseFirestore.instance
-            .collection('users')
-            .where('approvalStatus', isEqualTo: 'approved')
-            .get();
-        adherentsCount = approvedMembers.docs
-            .where((doc) {
-              if (doc.id == uid) return false;
-              if (readMemberIdSet.contains(doc.id)) return false;
-              final approvedAt = doc.data()['approvedAt'] as Timestamp?;
-              if (approvedAt == null) return false;
-              return approvedAt.toDate().isAfter(sevenDaysAgo);
-            })
-            .length;
+      } catch (_) {
+        if (!controller.isClosed) {
+          controller.add(null);
+        }
       }
+    }
 
-      final today = DateTime.now();
-      final todayStart = DateTime(today.year, today.month, today.day);
+    fetch();
+    _approvalPollingTimer = Timer.periodic(const Duration(seconds: 10), (_) => fetch());
 
-      final events = await FirebaseFirestore.instance
-          .collection('events')
-          .get();
+    return controller.stream;
+  }
 
-      final eventsCount = events.docs
-          .where((doc) {
-            final data = doc.data();
-            if (readIds.contains(doc.id)) return false;
-            final createdAt = data['createdAt'] as Timestamp?;
-            if (createdAt == null) return false;
-            final createdDate = DateTime(
-              createdAt.toDate().year,
-              createdAt.toDate().month,
-              createdAt.toDate().day,
-            );
-            if (!createdDate.isAtSameMomentAs(todayStart) && createdDate.isBefore(todayStart)) {
-              return false;
-            }
-            // Exclure les événements dont la date de rencontre est passée
-            final eventDateTs = data['date'] as Timestamp?;
-            if (eventDateTs == null) return false;
-            final eventDay = DateTime(
-              eventDateTs.toDate().year,
-              eventDateTs.toDate().month,
-              eventDateTs.toDate().day,
-            );
-            return !eventDay.isBefore(todayStart);
-          })
-          .length;
+  /// Returns a stream of the total notification count, polled every 30 seconds.
+  Stream<int> _getTotalNotificationsCount() {
+    _notificationStreamController?.close();
+    _notificationPollingTimer?.cancel();
 
-      final publishedMessages = await FirebaseFirestore.instance
-          .collection('messages')
-          .where('published', isEqualTo: true)
-          .get();
+    final controller = StreamController<int>.broadcast();
+    _notificationStreamController = controller;
 
-      final messagesCount = publishedMessages.docs
-          .where((doc) => !readMessageIds.contains(doc.id))
-          .length;
+    Future<void> fetch() async {
+      if (controller.isClosed) return;
+      try {
+        final count = await _computeNotificationCount();
+        if (!controller.isClosed) {
+          controller.add(count);
+        }
+      } catch (_) {
+        if (!controller.isClosed) {
+          controller.add(0);
+        }
+      }
+    }
 
-      return adherentsCount + eventsCount + messagesCount;
-    });
+    fetch();
+    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => fetch());
+
+    return controller.stream;
+  }
+
+  Future<int> _computeNotificationCount() async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return 0;
+
+    // Récupérer les données de l'utilisateur courant (rôle + IDs lus)
+    final currentUserData = await Supabase.instance.client
+        .from('users')
+        .select()
+        .eq('id', uid)
+        .maybeSingle();
+
+    if (currentUserData == null) return 0;
+
+    final role = currentUserData['role'] as String? ?? '';
+    final isAdmin = role == 'admin' || role.contains('admin');
+
+    Set<String> readIds = {};
+    Set<String> readMessageIds = {};
+    final eventIds = currentUserData['read_notification_event_ids'];
+    if (eventIds is List) readIds = eventIds.cast<String>().toSet();
+    final msgIds = currentUserData['read_notification_message_ids'];
+    if (msgIds is List) readMessageIds = msgIds.cast<String>().toSet();
+
+    // Compter les adhésions selon le rôle
+    int adherentsCount = 0;
+    if (isAdmin) {
+      // Admin : nombre de demandes d'adhésion en attente
+      final pending = await Supabase.instance.client
+          .from('users')
+          .select('id')
+          .eq('approval_status', 'pending');
+      adherentsCount = (pending as List).length;
+    } else {
+      // Utilisateur : nouveaux membres approuvés (7 derniers jours) non vus
+      final readMemberIds = currentUserData['read_new_member_ids'];
+      final Set<String> readMemberIdSet = {};
+      if (readMemberIds is List) {
+        readMemberIdSet.addAll(readMemberIds.cast<String>());
+      }
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final approvedMembers = await Supabase.instance.client
+          .from('users')
+          .select('id, approved_at')
+          .eq('approval_status', 'approved');
+      adherentsCount = (approvedMembers as List).where((doc) {
+        final docId = doc['id'] as String?;
+        if (docId == null || docId == uid) return false;
+        if (readMemberIdSet.contains(docId)) return false;
+        final approvedAtStr = doc['approved_at'] as String?;
+        if (approvedAtStr == null) return false;
+        final approvedAt = DateTime.tryParse(approvedAtStr);
+        if (approvedAt == null) return false;
+        return approvedAt.isAfter(sevenDaysAgo);
+      }).length;
+    }
+
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+
+    final events = await Supabase.instance.client
+        .from('events')
+        .select('id, created_at, date');
+
+    final eventsCount = (events as List).where((doc) {
+      final docId = doc['id'] as String?;
+      if (docId == null) return false;
+      if (readIds.contains(docId)) return false;
+      final createdAtStr = doc['created_at'] as String?;
+      if (createdAtStr == null) return false;
+      final createdAt = DateTime.tryParse(createdAtStr);
+      if (createdAt == null) return false;
+      final createdDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+      if (!createdDate.isAtSameMomentAs(todayStart) && createdDate.isBefore(todayStart)) {
+        return false;
+      }
+      // Exclure les événements dont la date de rencontre est passée
+      final eventDateStr = doc['date'] as String?;
+      if (eventDateStr == null) return false;
+      final eventDate = DateTime.tryParse(eventDateStr);
+      if (eventDate == null) return false;
+      final eventDay = DateTime(eventDate.year, eventDate.month, eventDate.day);
+      return !eventDay.isBefore(todayStart);
+    }).length;
+
+    final publishedMessages = await Supabase.instance.client
+        .from('messages')
+        .select('id')
+        .eq('published', true);
+
+    final messagesCount = (publishedMessages as List)
+        .where((doc) => !readMessageIds.contains(doc['id'] as String?))
+        .length;
+
+    return adherentsCount + eventsCount + messagesCount;
   }
 
   @override
@@ -433,18 +510,15 @@ class _HomePageState extends State<HomePage> {
             return _buildMainContent(context, user);
           }
 
-          // Pour les autres utilisateurs, vérifier le statut d'approbation en temps réel
-          return StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .snapshots(),
+          // Pour les autres utilisateurs, vérifier le statut d'approbation via polling
+          return StreamBuilder<Map<String, dynamic>?>(
+            stream: _getUserApprovalStream(user.uid),
             builder: (context, userDocSnap) {
               if (userDocSnap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final data = userDocSnap.data?.data() as Map<String, dynamic>?;
-              final approvalStatus = data?['approvalStatus'] as String?;
+              final data = userDocSnap.data;
+              final approvalStatus = data?['approval_status'] as String?;
               if (approvalStatus == 'pending') {
                 return _buildPendingApprovalScreen(context, isDark);
               }
@@ -943,7 +1017,7 @@ class _HomePageState extends State<HomePage> {
 
             if (snapshot.hasError) {
               return Center(
-                child: Text('❌ Erreur: ${snapshot.error}'),
+                child: Text('Erreur: ${snapshot.error}'),
               );
             }
 
@@ -1064,7 +1138,7 @@ class _ContactButton extends StatelessWidget {
   }
 }
 
-/// Formulaire simple pour écrire un message (stocké dans Firestore)
+/// Formulaire simple pour écrire un message (stocké dans Supabase)
 class _MessageFormDialog extends StatefulWidget {
   final user_model.User user;
   final String category;
@@ -1127,14 +1201,13 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
   }
 
   Future<String> _uploadBytes(Uint8List bytes, String path) async {
-    final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putData(bytes).timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw Exception(
-        'Délai dépassé lors de l\'upload. Vérifiez votre connexion.',
-      ),
+    final storage = Supabase.instance.client.storage.from('messages_attachments');
+    await storage.uploadBinary(
+      path,
+      bytes,
+      fileOptions: const FileOptions(upsert: true),
     );
-    return await ref.getDownloadURL();
+    return storage.getPublicUrl(path);
   }
 
   Future<void> _submitMessage() async {
@@ -1158,7 +1231,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         final ext = _imageFile!.name.split('.').last;
         imageUrl = await _uploadBytes(
           _imageBytes!,
-          'messages_attachments/${widget.user.uid}/${ts}_image.$ext',
+          '${widget.user.uid}/${ts}_image.$ext',
         );
       }
 
@@ -1166,39 +1239,39 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         fileName = _pickedFile!.name;
         fileUrl = await _uploadBytes(
           _pickedFile!.bytes!,
-          'messages_attachments/${widget.user.uid}/${ts}_$fileName',
+          '${widget.user.uid}/${ts}_$fileName',
         );
       }
 
       final link = _linkController.text.trim();
 
-      await FirebaseFirestore.instance.collection('messages').add({
-        'userId': widget.user.uid,
-        'userName': '${widget.user.prenom} ${widget.user.nom}',
-        'userEmail': widget.user.email,
-        'userRole': widget.user.role.toString(),
+      await Supabase.instance.client.from('messages').insert({
+        'user_id': widget.user.uid,
+        'user_name': '${widget.user.prenom} ${widget.user.nom}',
+        'user_email': widget.user.email,
+        'user_role': widget.user.role.toString(),
         'category': widget.category,
         'message': _messageController.text.trim(),
-        'timestamp': FieldValue.serverTimestamp(),
+        'created_at': DateTime.now().toIso8601String(),
         'read': false,
-        if (link.isNotEmpty) 'linkUrl': link,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        if (fileUrl != null) 'fileUrl': fileUrl,
-        if (fileName != null) 'fileName': fileName,
+        if (link.isNotEmpty) 'link_url': link,
+        if (imageUrl != null) 'image_url': imageUrl,
+        if (fileUrl != null) 'file_url': fileUrl,
+        if (fileName != null) 'file_name': fileName,
       });
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Message enregistré avec succès!'),
+            content: Text('Message enregistré avec succès!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      debugPrint('❌ Error: $e');
+      debugPrint('Error: $e');
       setState(() => _error = 'Erreur: $e');
     } finally {
       if (mounted) setState(() => _isSending = false);

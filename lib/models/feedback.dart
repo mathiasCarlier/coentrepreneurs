@@ -7,9 +7,9 @@ class Feedback {
   final String userEmail;
   final String userPrenom;
   final String userNom;
-  final String whatYouLiked;      // Qu'est-ce qui vous a plu
-  final int rating;                 // Note de 0 à 10
-  final String whatYouLearned;      // Ce que tu as retenu
+  final String whatYouLiked;
+  final int rating;
+  final String whatYouLearned;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,45 +27,38 @@ class Feedback {
     required this.updatedAt,
   });
 
-  /// Convertir vers Map pour Firestore
+  /// Pour l'insertion Supabase (sans id — généré par la base)
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'eventId': eventId,
-      'userId': userId,
-      'userEmail': userEmail,
-      'userPrenom': userPrenom,
-      'userNom': userNom,
-      'whatYouLiked': whatYouLiked,
+      'event_id': eventId,
+      'user_id': userId,
+      'user_email': userEmail,
+      'user_prenom': userPrenom,
+      'user_nom': userNom,
+      'what_you_liked': whatYouLiked,
       'rating': rating,
-      'whatYouLearned': whatYouLearned,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
+      'what_you_learned': whatYouLearned,
     };
   }
 
-  /// Créer à partir d'une Map Firestore
   factory Feedback.fromMap(Map<String, dynamic> data) {
     return Feedback(
       id: data['id'] ?? '',
-      eventId: data['eventId'] ?? '',
-      userId: data['userId'] ?? '',
-      userEmail: data['userEmail'] ?? '',
-      userPrenom: data['userPrenom'] ?? '',
-      userNom: data['userNom'] ?? '',
-      whatYouLiked: data['whatYouLiked'] ?? '',
+      eventId: data['event_id'] ?? '',
+      userId: data['user_id'] ?? '',
+      userEmail: data['user_email'] ?? '',
+      userPrenom: data['user_prenom'] ?? '',
+      userNom: data['user_nom'] ?? '',
+      whatYouLiked: data['what_you_liked'] ?? '',
       rating: data['rating'] ?? 0,
-      whatYouLearned: data['whatYouLearned'] ?? '',
-      createdAt: data['createdAt'] is DateTime
-          ? data['createdAt']
-          : DateTime.parse(data['createdAt']?.toString() ?? DateTime.now().toString()),
-      updatedAt: data['updatedAt'] is DateTime
-          ? data['updatedAt']
-          : DateTime.parse(data['updatedAt']?.toString() ?? DateTime.now().toString()),
+      whatYouLearned: data['what_you_learned'] ?? '',
+      createdAt: DateTime.parse(
+          data['created_at'] as String? ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(
+          data['updated_at'] as String? ?? DateTime.now().toIso8601String()),
     );
   }
 
-  /// Copie avec modifications
   Feedback copyWith({
     String? id,
     String? eventId,

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// Cycle de vie d'une rencontre.
 ///
 /// - [pending] : inscriptions ouvertes, aucune action de l'organisateur requise.
@@ -13,12 +11,9 @@ enum EventStatus {
 
 /// Représente une rencontre/événement de la plateforme.
 ///
-/// Les listes [registeredUserIds], [confirmedParticipants] et [declinedUserIds]
-/// sont des tableaux Firestore mis à jour atomiquement via [FieldValue.arrayUnion]
-/// / [FieldValue.arrayRemove] dans [RegistrationService].
-///
-/// [collationMenuText] est optionnel (null = pas de collation).
-/// [collationParticipants] contient les userId ayant répondu "oui" au repas.
+/// Les listes [registeredUserIds], [confirmedParticipants], [declinedUserIds]
+/// et [collationParticipants] sont reconstruites depuis la table `registrations`
+/// via le join Supabase (clé `registrations` dans la Map retournée).
 class Event {
   final String id;
   final DateTime date;
@@ -27,18 +22,18 @@ class Event {
   final String entreprise;
   final String lieu;
   final int maxParticipants;
-  final List<String> registeredUserIds;      // Inscrits
-  final List<String> confirmedParticipants;  // Confirmés présents
-  final List<String> declinedUserIds;        // Ayant refusé
-  final String? collationMenuText;           // Description du menu (null = pas de collation)
-  final List<String> collationParticipants;  // userId ayant dit "oui" au repas
-  final EventStatus status;                  // État de l'événement
-  final String? summary;                     // Compte-rendu en Markdown (null = pas encore rédigé)
-  final String? description;                 // Description/détails de la rencontre
-  final String? linkUrl;                     // Lien externe optionnel
-  final String? imageUrl;                    // URL image Firebase Storage
-  final String? fileUrl;                     // URL fichier Firebase Storage
-  final String? fileName;                    // Nom d'origine du fichier
+  final List<String> registeredUserIds;
+  final List<String> confirmedParticipants;
+  final List<String> declinedUserIds;
+  final String? collationMenuText;
+  final List<String> collationParticipants;
+  final EventStatus status;
+  final String? summary;
+  final String? description;
+  final String? linkUrl;
+  final String? imageUrl;
+  final String? fileUrl;
+  final String? fileName;
 
   Event({
     required this.id,
@@ -62,7 +57,6 @@ class Event {
     this.fileName,
   });
 
-  // ✅ Getters pour simplifier le code
   int get currentParticipants => registeredUserIds.length;
   bool get isFull => currentParticipants >= maxParticipants;
   double get registrationPercentage =>
@@ -78,92 +72,84 @@ class Event {
   bool get isDefinedEntreprise => entreprise.isNotEmpty;
   bool get isDefinedLieu => lieu.isNotEmpty;
 
-  // ✅ Vérifier si utilisateur est inscrit
   bool isUserRegistered(String uid) => registeredUserIds.contains(uid);
-
-  // ✅ Vérifier si utilisateur a confirmé sa présence
   bool isUserConfirmed(String uid) => confirmedParticipants.contains(uid);
-
-  // ✅ Vérifier si utilisateur a refusé la rencontre
   bool isUserDeclined(String uid) => declinedUserIds.contains(uid);
-
-  // ✅ Vérifier si utilisateur peut confirmer (inscrit + événement commencé)
   bool canUserConfirm(String uid) =>
       status == EventStatus.started && isUserRegistered(uid);
 
-  // ✅ Vérifier si événement est commencé
   bool get isStarted => status == EventStatus.started;
-
-  // ✅ Vérifier si événement est terminé
   bool get isFinished => status == EventStatus.finished;
-
-  // ✅ Collation
   bool get hasCollation => collationMenuText != null && collationMenuText!.isNotEmpty;
   bool get hasSummary => summary != null && summary!.isNotEmpty;
-
   bool hasUserChosenCollation(String uid) => collationParticipants.contains(uid);
 
-  // ✅ Conversion vers/depuis Firestore
+  /// Convertit vers la Map Supabase (snake_case, sans les listes de participants).
+  /// Les participants sont gérés via la table `registrations`.
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
+    return {
       'id': id,
-      'date': date,
+      'date': date.toIso8601String(),
       'theme': theme,
       'intervenant': intervenant,
       'entreprise': entreprise,
       'lieu': lieu,
-      'maxParticipants': maxParticipants,
-      'registeredUserIds': registeredUserIds,
-      'confirmedParticipants': confirmedParticipants,
-      'declinedUserIds': declinedUserIds,
-      'status': status.toString().split('.').last,
+      'max_participants': maxParticipants,
+      'status': status.name,
+      'summary': summary,
+      'description': description,
+      'link_url': linkUrl,
+      'image_url': imageUrl,
+      'file_url': fileUrl,
     };
-    if (collationMenuText != null && collationMenuText!.isNotEmpty) {
-      map['collationMenuText'] = collationMenuText;
-    }
-    if (collationParticipants.isNotEmpty) {
-      map['collationParticipants'] = collationParticipants;
-    }
-    if (summary != null && summary!.isNotEmpty) {
-      map['summary'] = summary;
-    }
-    if (description != null && description!.isNotEmpty) {
-      map['description'] = description;
-    }
-    if (linkUrl != null && linkUrl!.isNotEmpty) {
-      map['linkUrl'] = linkUrl;
-    }
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      map['imageUrl'] = imageUrl;
-    }
-    if (fileUrl != null && fileUrl!.isNotEmpty) {
-      map['fileUrl'] = fileUrl;
-      if (fileName != null) map['fileName'] = fileName;
-    }
-    return map;
   }
 
+  /// Crée un Event depuis une réponse Supabase.
+  /// La Map peut contenir une clé `registrations` avec le join des participants.
   factory Event.fromMap(Map<String, dynamic> map) {
+    final regs = (map['registrations'] as List<dynamic>?) ?? [];
+    final registeredIds = <String>[];
+    final confirmedIds = <String>[];
+    final declinedIds = <String>[];
+    final collationIds = <String>[];
+
+    for (final reg in regs) {
+      final userId = reg['user_id'] as String? ?? '';
+      final regStatus = reg['status'] as String? ?? '';
+      final collation = reg['collation'] as bool? ?? false;
+
+      if (regStatus == 'registered' || regStatus == 'confirmed') {
+        registeredIds.add(userId);
+      }
+      if (regStatus == 'confirmed') {
+        confirmedIds.add(userId);
+      }
+      if (regStatus == 'declined') {
+        declinedIds.add(userId);
+      }
+      if (collation) {
+        collationIds.add(userId);
+      }
+    }
+
     return Event(
       id: map['id'] ?? '',
-      date: (map['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      date: DateTime.parse(map['date'] as String),
       theme: map['theme'] ?? '',
       intervenant: map['intervenant'] ?? '',
       entreprise: map['entreprise'] ?? '',
       lieu: map['lieu'] ?? '',
-      maxParticipants: map['maxParticipants'] ?? 30,
-      registeredUserIds: List<String>.from(map['registeredUserIds'] ?? []),
-      confirmedParticipants: List<String>.from(map['confirmedParticipants'] ?? []),
-      declinedUserIds: List<String>.from(map['declinedUserIds'] ?? []),
-      collationMenuText: map['collationMenuText'] as String?,
-      collationParticipants: List<String>.from(map['collationParticipants'] ?? []),
+      maxParticipants: map['max_participants'] ?? 30,
+      registeredUserIds: registeredIds,
+      confirmedParticipants: confirmedIds,
+      declinedUserIds: declinedIds,
+      collationParticipants: collationIds,
       status: _statusFromString(map['status'] ?? 'pending'),
       summary: map['summary'] as String?,
       description: map['description'] as String?,
-      linkUrl: map['linkUrl'] as String?,
-      imageUrl: map['imageUrl'] as String?,
-      fileUrl: map['fileUrl'] as String?,
-      fileName: map['fileName'] as String?,
+      linkUrl: map['link_url'] as String?,
+      imageUrl: map['image_url'] as String?,
+      fileUrl: map['file_url'] as String?,
     );
   }
 

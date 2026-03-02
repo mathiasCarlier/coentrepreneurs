@@ -1,15 +1,13 @@
-// models/invitation.dart - Modèle pour les invitations (CORRIGÉ)
-
-import 'package:cloud_firestore/cloud_firestore.dart';
+// models/invitation.dart
 
 class Invitation {
   final String id;
   final String eventId;
-  final String invitedByUserId; // Utilisateur qui invite
-  final String invitedUserEmail; // ✅ EMAIL - Requis pour lier à User
+  final String invitedByUserId;
+  final String invitedUserEmail;
   final String invitedUserPrenom;
   final String invitedUserNom;
-  final InvitationStatus status; // pending, accepted, declined
+  final InvitationStatus status;
   final DateTime createdAt;
   final DateTime? respondedAt;
 
@@ -17,7 +15,7 @@ class Invitation {
     required this.id,
     required this.eventId,
     required this.invitedByUserId,
-    required this.invitedUserEmail, // ✅ Maintenant requis
+    required this.invitedUserEmail,
     required this.invitedUserPrenom,
     required this.invitedUserNom,
     this.status = InvitationStatus.pending,
@@ -25,43 +23,51 @@ class Invitation {
     this.respondedAt,
   });
 
-  // ✅ Getters
   String get invitedUserFullName => '$invitedUserPrenom $invitedUserNom';
   bool get isPending => status == InvitationStatus.pending;
   bool get isAccepted => status == InvitationStatus.accepted;
   bool get isDeclined => status == InvitationStatus.declined;
 
-  // ✅ Factory fromMap
-  factory Invitation.fromMap(Map<String, dynamic> map) {
-    return Invitation(
-      id: map['id'] ?? '',
-      eventId: map['eventId'] ?? '',
-      invitedByUserId: map['invitedByUserId'] ?? '',
-      invitedUserEmail: map['invitedUserEmail'] ?? '', // ✅ Récupérer email
-      invitedUserPrenom: map['invitedUserPrenom'] ?? '',
-      invitedUserNom: map['invitedUserNom'] ?? '',
-      status: _statusFromString(map['status'] ?? 'pending'),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      respondedAt: (map['respondedAt'] as Timestamp?)?.toDate(),
-    );
-  }
-
-  // ✅ toMap
+  /// Pour l'insertion Supabase (sans id — généré par la base)
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'eventId': eventId,
-      'invitedByUserId': invitedByUserId,
-      'invitedUserEmail': invitedUserEmail, // ✅ Sauvegarder email
-      'invitedUserPrenom': invitedUserPrenom,
-      'invitedUserNom': invitedUserNom,
-      'status': status.toString().split('.').last,
-      'createdAt': createdAt,
-      'respondedAt': respondedAt,
+      'event_id': eventId,
+      'invited_by_user_id': invitedByUserId,
+      'invited_user_email': invitedUserEmail,
+      'invited_user_prenom': invitedUserPrenom,
+      'invited_user_nom': invitedUserNom,
+      'status': status.name,
     };
   }
 
-  // ✅ copyWith
+  factory Invitation.fromMap(Map<String, dynamic> map) {
+    return Invitation(
+      id: map['id'] ?? '',
+      eventId: map['event_id'] ?? '',
+      invitedByUserId: map['invited_by_user_id'] ?? '',
+      invitedUserEmail: map['invited_user_email'] ?? '',
+      invitedUserPrenom: map['invited_user_prenom'] ?? '',
+      invitedUserNom: map['invited_user_nom'] ?? '',
+      status: _statusFromString(map['status'] ?? 'pending'),
+      createdAt: DateTime.parse(
+          map['created_at'] as String? ?? DateTime.now().toIso8601String()),
+      respondedAt: map['responded_at'] != null
+          ? DateTime.parse(map['responded_at'] as String)
+          : null,
+    );
+  }
+
+  static InvitationStatus _statusFromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'accepted':
+        return InvitationStatus.accepted;
+      case 'declined':
+        return InvitationStatus.declined;
+      default:
+        return InvitationStatus.pending;
+    }
+  }
+
   Invitation copyWith({
     String? id,
     String? eventId,
@@ -85,19 +91,6 @@ class Invitation {
       respondedAt: respondedAt ?? this.respondedAt,
     );
   }
-
-  // ✅ Helper pour InvitationStatus
-  static InvitationStatus _statusFromString(String status) {
-    switch (status.toLowerCase()) {
-      case 'accepted':
-        return InvitationStatus.accepted;
-      case 'declined':
-        return InvitationStatus.declined;
-      default:
-        return InvitationStatus.pending;
-    }
-  }
 }
 
-// ✅ Enum pour le statut d'invitation
 enum InvitationStatus { pending, accepted, declined }

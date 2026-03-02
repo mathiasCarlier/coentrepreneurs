@@ -1,324 +1,266 @@
-// services/event_service.dart - VERSION FINALE COMPLÈTE
+// services/event_service.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/event.dart';
 
 class EventService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  SupabaseClient get _supabase => Supabase.instance.client;
+
+  // Requête de sélection avec le join registrations
+  static const _select = '*, registrations(user_id, status, collation)';
 
   // ========================================
-  // 📝 OPÉRATIONS CRUD
+  // OPÉRATIONS CRUD
   // ========================================
 
-  /// Créer un nouvel événement
   Future<void> createEvent(Event event) async {
     try {
-      final docRef = _firestore.collection('events').doc();
-      final newEvent = event.copyWith(id: docRef.id);
-      final map = newEvent.toMap();
-      // Ajouter createdAt côté serveur pour pouvoir détecter les nouveautés
-      map['createdAt'] = FieldValue.serverTimestamp();
-      await docRef.set(map);
+      final map = event.toMap();
+      map.remove('id'); // Laisse Supabase générer l'UUID
+      await _supabase.from('events').insert(map);
     } catch (e) {
       throw Exception('Erreur lors de la création de l\'événement: $e');
     }
   }
 
-  /// Mettre à jour un événement existant
   Future<void> updateEvent(String eventId, Event event) async {
     try {
-      await _firestore.collection('events').doc(eventId).set(
-        event.copyWith(id: eventId).toMap(),
-        SetOptions(merge: true),
-      );
+      final map = event.toMap();
+      map.remove('id');
+      await _supabase.from('events').update(map).eq('id', eventId);
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour de l\'événement: $e');
     }
   }
 
-  /// Supprimer un événement
   Future<void> deleteEvent(String eventId) async {
     try {
-      await _firestore.collection('events').doc(eventId).delete();
+      await _supabase.from('events').delete().eq('id', eventId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression de l\'événement: $e');
     }
   }
 
   // ========================================
-  // 🔍 LECTURES
+  // LECTURES
   // ========================================
 
-  /// Récupérer tous les événements (stream)
+  /// Récupérer tous les événements (stream temps réel)
   Stream<List<Event>> getAllEventsStream() {
-    return _firestore
-        .collection('events')
-        .orderBy('date', descending: false)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) {
-                try {
-                  return Event.fromMap(doc.data());
-                } catch (e) {
-                  debugPrint('Erreur parsing événement ${doc.id}: $e');
-                  rethrow;
-                }
-              })
-              .toList();
-        });
+    return _supabase
+        .from('events')
+        .stream(primaryKey: ['id'])
+        .order('date', ascending: true)
+        .asyncMap((rows) => _attachRegistrations(rows));
   }
 
-  /// Récupérer tous les événements (une seule fois)
   Future<List<Event>> getAllEvents() async {
     try {
-      final snapshot = await _firestore
-          .collection('events')
-          .orderBy('date', descending: false)
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => Event.fromMap(doc.data()))
-          .toList();
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .order('date', ascending: true);
+      return (data as List).map((e) => Event.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des événements: $e');
     }
   }
 
-  /// Mettre à jour le compte-rendu (Markdown) d'un événement terminé
   Future<void> updateEventSummary(String eventId, String summary) async {
     try {
-      await _firestore.collection('events').doc(eventId).update({
-        'summary': summary,
-      });
+      await _supabase
+          .from('events')
+          .update({'summary': summary})
+          .eq('id', eventId);
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du compte-rendu: $e');
     }
   }
 
-  /// Récupérer un événement spécifique
   Future<Event?> getEvent(String eventId) async {
     try {
-      final doc = await _firestore.collection('events').doc(eventId).get();
-      return doc.exists ? Event.fromMap(doc.data()!) : null;
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .eq('id', eventId)
+          .maybeSingle();
+      return data != null ? Event.fromMap(data) : null;
     } catch (e) {
       throw Exception('Erreur lors de la récupération de l\'événement: $e');
     }
   }
 
-  /// Récupérer les événements auxquels un utilisateur est inscrit (stream)
+  /// Événements auxquels un utilisateur est inscrit (stream)
   Stream<List<Event>> getUserEventsStream(String userId) {
-    return _firestore
-        .collection('events')
-        .where('registeredUserIds', arrayContains: userId)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map((doc) => Event.fromMap(doc.data()))
+    // Stream les inscriptions de cet user, puis charge les events complets
+    return _supabase
+        .from('registrations')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .asyncMap((regs) async {
+          if (regs.isEmpty) return <Event>[];
+          final eventIds = regs
+              .where((r) => r['status'] != 'declined')
+              .map((r) => r['event_id'] as String)
               .toList();
+          if (eventIds.isEmpty) return <Event>[];
+          final data = await _supabase
+              .from('events')
+              .select(_select)
+              .inFilter('id', eventIds);
+          return (data as List).map((e) => Event.fromMap(e)).toList();
         });
   }
 
-  /// Récupérer les événements auxquels un utilisateur est inscrit (une seule fois)
   Future<List<Event>> getUserEvents(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('events')
-          .where('registeredUserIds', arrayContains: userId)
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => Event.fromMap(doc.data()))
-          .toList();
+      final regs = await _supabase
+          .from('registrations')
+          .select('event_id')
+          .eq('user_id', userId)
+          .neq('status', 'declined');
+      if ((regs as List).isEmpty) return [];
+      final eventIds = regs.map((r) => r['event_id'] as String).toList();
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .inFilter('id', eventIds);
+      return (data as List).map((e) => Event.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des événements utilisateur: $e');
     }
   }
 
-  /// Récupérer les événements où l'utilisateur a confirmé sa présence
   Future<List<Event>> getUserConfirmedEvents(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('events')
-          .where('confirmedParticipants', arrayContains: userId)
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => Event.fromMap(doc.data()))
-          .toList();
+      final regs = await _supabase
+          .from('registrations')
+          .select('event_id')
+          .eq('user_id', userId)
+          .eq('status', 'confirmed');
+      if ((regs as List).isEmpty) return [];
+      final eventIds = regs.map((r) => r['event_id'] as String).toList();
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .inFilter('id', eventIds);
+      return (data as List).map((e) => Event.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des événements confirmés: $e');
     }
   }
 
-  /// Compter les événements
   Future<int> countEvents() async {
     try {
-      final snapshot = await _firestore.collection('events').count().get();
-      return snapshot.count ?? 0;
+      final data = await _supabase.from('events').select('id');
+      return (data as List).length;
     } catch (e) {
       throw Exception('Erreur lors du comptage des événements: $e');
     }
   }
 
   // ========================================
-  // 👥 GESTION DES INSCRIPTIONS
+  // GESTION DES INSCRIPTIONS
   // ========================================
 
-  /// Inscrire un utilisateur à un événement
   Future<void> registerUserToEvent(String eventId, String userId) async {
     try {
-      final eventDoc = await _firestore.collection('events').doc(eventId).get();
-      if (!eventDoc.exists) {
-        throw Exception('Événement non trouvé');
-      }
+      final event = await getEvent(eventId);
+      if (event == null) throw Exception('Événement non trouvé');
+      if (event.isFull) throw Exception('Événement complet');
 
-      final event = Event.fromMap(eventDoc.data()!);
-      
-      // Vérifier que l'utilisateur n'est pas déjà inscrit
-      if (event.registeredUserIds.contains(userId)) {
-        throw Exception('Utilisateur déjà inscrit');
-      }
-
-      // Vérifier la capacité
-      if (event.isFull) {
-        throw Exception('Événement complet');
-      }
-
-      final updatedUserIds = event.registeredUserIds.toList();
-      updatedUserIds.add(userId);
-
-      await _firestore.collection('events').doc(eventId).update({
-        'registeredUserIds': updatedUserIds,
+      await _supabase.from('registrations').insert({
+        'event_id': eventId,
+        'user_id': userId,
+        'status': 'registered',
       });
     } catch (e) {
       throw Exception('Erreur lors de l\'inscription: $e');
     }
   }
 
-  /// Désinscrire un utilisateur d'un événement
   Future<void> unregisterUserFromEvent(String eventId, String userId) async {
     try {
-      final eventDoc = await _firestore.collection('events').doc(eventId).get();
-      if (!eventDoc.exists) {
-        throw Exception('Événement non trouvé');
-      }
-
-      final event = Event.fromMap(eventDoc.data()!);
-      
-      final updatedUserIds = event.registeredUserIds
-          .where((id) => id != userId)
-          .toList();
-      
-      // Enlever aussi de la liste des confirmés
-      final updatedConfirmed = event.confirmedParticipants
-          .where((id) => id != userId)
-          .toList();
-
-      await _firestore.collection('events').doc(eventId).update({
-        'registeredUserIds': updatedUserIds,
-        'confirmedParticipants': updatedConfirmed,
-      });
+      await _supabase
+          .from('registrations')
+          .delete()
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
     } catch (e) {
       throw Exception('Erreur lors de la désinscription: $e');
     }
   }
 
   // ========================================
-  // ✅ GESTION DE LA CONFIRMATION DE PRÉSENCE
+  // GESTION DE LA CONFIRMATION DE PRÉSENCE
   // ========================================
 
-  /// Changer l'état de l'événement (pending -> started -> finished)
   Future<void> updateEventStatus(String eventId, EventStatus newStatus) async {
     try {
-      await _firestore.collection('events').doc(eventId).update({
-        'status': newStatus.toString().split('.').last,
-      });
+      await _supabase
+          .from('events')
+          .update({'status': newStatus.name})
+          .eq('id', eventId);
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du statut: $e');
     }
   }
 
-  /// Confirmer la présence d'un utilisateur à un événement
   Future<void> confirmUserPresence(String eventId, String userId) async {
     try {
-      final eventDoc = await _firestore.collection('events').doc(eventId).get();
-      if (!eventDoc.exists) {
-        throw Exception('Événement non trouvé');
-      }
-
-      final event = Event.fromMap(eventDoc.data()!);
-
-      // Vérifier que l'utilisateur est inscrit
+      final event = await getEvent(eventId);
+      if (event == null) throw Exception('Événement non trouvé');
       if (!event.registeredUserIds.contains(userId)) {
         throw Exception('Utilisateur non inscrit à cet événement');
       }
-
-      // Vérifier que l'événement a commencé
       if (event.status != EventStatus.started) {
         throw Exception('L\'événement n\'a pas commencé');
       }
 
-      // Vérifier qu'il n'est pas déjà confirmé
-      if (event.confirmedParticipants.contains(userId)) {
-        throw Exception('Utilisateur déjà confirmé');
-      }
-
-      final updatedConfirmed = event.confirmedParticipants.toList();
-      updatedConfirmed.add(userId);
-
-      await _firestore.collection('events').doc(eventId).update({
-        'confirmedParticipants': updatedConfirmed,
-      });
+      await _supabase
+          .from('registrations')
+          .update({'status': 'confirmed', 'responded_at': DateTime.now().toIso8601String()})
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
     } catch (e) {
       throw Exception('Erreur lors de la confirmation: $e');
     }
   }
 
-  /// Enlever une confirmation de présence
   Future<void> removePresenceConfirmation(String eventId, String userId) async {
     try {
-      final eventDoc = await _firestore.collection('events').doc(eventId).get();
-      if (!eventDoc.exists) {
-        throw Exception('Événement non trouvé');
-      }
-
-      final event = Event.fromMap(eventDoc.data()!);
-      final updatedConfirmed = event.confirmedParticipants
-          .where((id) => id != userId)
-          .toList();
-
-      await _firestore.collection('events').doc(eventId).update({
-        'confirmedParticipants': updatedConfirmed,
-      });
+      await _supabase
+          .from('registrations')
+          .update({'status': 'registered', 'responded_at': null})
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression de confirmation: $e');
     }
   }
 
-  /// Obtenir le nombre de confirmés pour un événement
   Future<int> getConfirmedCount(String eventId) async {
     try {
-      final event = await getEvent(eventId);
-      return event?.confirmedParticipants.length ?? 0;
+      final data = await _supabase
+          .from('registrations')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('status', 'confirmed');
+      return (data as List).length;
     } catch (e) {
       throw Exception('Erreur lors du comptage des confirmés: $e');
     }
   }
 
   // ========================================
-  // 📊 STATISTIQUES
+  // STATISTIQUES
   // ========================================
 
-  /// Obtenir les statistiques d'un événement
   Future<Map<String, dynamic>> getEventStats(String eventId) async {
     try {
       final event = await getEvent(eventId);
-      if (event == null) {
-        throw Exception('Événement non trouvé');
-      }
-
+      if (event == null) throw Exception('Événement non trouvé');
       return {
         'id': event.id,
         'theme': event.theme,
@@ -329,14 +271,13 @@ class EventService {
         'tauxConfirmation': event.currentParticipants > 0
             ? event.confirmedParticipants.length / event.currentParticipants
             : 0,
-        'status': event.status.toString().split('.').last,
+        'status': event.status.name,
       };
     } catch (e) {
       throw Exception('Erreur lors de la récupération des statistiques: $e');
     }
   }
 
-  /// Obtenir tous les utilisateurs inscrits à un événement
   Future<List<String>> getRegisteredUsers(String eventId) async {
     try {
       final event = await getEvent(eventId);
@@ -346,7 +287,6 @@ class EventService {
     }
   }
 
-  /// Obtenir tous les utilisateurs ayant confirmé pour un événement
   Future<List<String>> getConfirmedUsers(String eventId) async {
     try {
       final event = await getEvent(eventId);
@@ -357,93 +297,70 @@ class EventService {
   }
 
   // ========================================
-  // 🔍 RECHERCHE
+  // RECHERCHE
   // ========================================
 
-  /// Chercher des événements par thème
   Future<List<Event>> searchEventsByTheme(String query) async {
     try {
-      final snapshot = await _firestore
-          .collection('events')
-          .where('theme', isGreaterThanOrEqualTo: query)
-          .where('theme', isLessThan: '${query}z')
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => Event.fromMap(doc.data()))
-          .toList();
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .ilike('theme', '%$query%');
+      return (data as List).map((e) => Event.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la recherche: $e');
     }
   }
 
-  /// Obtenir les événements à venir
   Future<List<Event>> getUpcomingEvents() async {
     try {
-      final now = DateTime.now();
-      final snapshot = await _firestore
-          .collection('events')
-          .where('date', isGreaterThan: Timestamp.fromDate(now))
-          .orderBy('date')
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => Event.fromMap(doc.data()))
-          .toList();
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .gt('date', DateTime.now().toIso8601String())
+          .order('date', ascending: true);
+      return (data as List).map((e) => Event.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des événements à venir: $e');
     }
   }
 
-  /// Obtenir les événements passés
   Future<List<Event>> getPastEvents() async {
     try {
-      final now = DateTime.now();
-      final snapshot = await _firestore
-          .collection('events')
-          .where('date', isLessThan: Timestamp.fromDate(now))
-          .orderBy('date', descending: true)
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => Event.fromMap(doc.data()))
-          .toList();
+      final data = await _supabase
+          .from('events')
+          .select(_select)
+          .lt('date', DateTime.now().toIso8601String())
+          .order('date', ascending: false);
+      return (data as List).map((e) => Event.fromMap(e)).toList();
     } catch (e) {
       throw Exception('Erreur lors de la récupération des événements passés: $e');
     }
   }
 
   // ========================================
-  // 🎯 INITIALISATION DES ÉVÉNEMENTS PAR DÉFAUT
+  // INITIALISATION DES ÉVÉNEMENTS PAR DÉFAUT
   // ========================================
 
-  /// Initialiser les événements par défaut
-  /// À appeler une fois au démarrage de l'application
   Future<void> initializeDefaultEvents() async {
     try {
-      final snapshot = await _firestore.collection('events').count().get();
-      
-      // Si des événements existent déjà, ne pas initialiser
-      if ((snapshot.count ?? 0) > 0) {
+      final count = await countEvents();
+      if (count > 0) {
         debugPrint('✅ Des événements existent déjà. Initialisation ignorée.');
         return;
       }
 
       debugPrint('📝 Initialisation des événements par défaut...');
-
-      // Créer des événements d'exemple
       final now = DateTime.now();
       final events = [
         Event(
-          id: '', // Sera généré par Firestore
+          id: '',
           date: now.add(const Duration(days: 7)),
           theme: 'Introduction à Flutter',
           intervenant: 'Jean Dupont',
           entreprise: 'Tech Solutions',
           lieu: 'Paris, France',
           maxParticipants: 30,
-          registeredUserIds: [],
-          confirmedParticipants: [],
           status: EventStatus.pending,
         ),
         Event(
@@ -454,46 +371,62 @@ class EventService {
           entreprise: 'DevApp Inc',
           lieu: 'Lyon, France',
           maxParticipants: 25,
-          registeredUserIds: [],
-          confirmedParticipants: [],
           status: EventStatus.pending,
         ),
         Event(
           id: '',
           date: now.add(const Duration(days: 21)),
-          theme: 'Cloud et Backend avec Firebase',
+          theme: 'Cloud et Backend avec Supabase',
           intervenant: 'Pierre Bernard',
           entreprise: 'Cloud Experts',
           lieu: 'Bordeaux, France',
           maxParticipants: 20,
-          registeredUserIds: [],
-          confirmedParticipants: [],
           status: EventStatus.pending,
         ),
       ];
 
-      // Créer chaque événement
       for (final event in events) {
         await createEvent(event);
       }
-
       debugPrint('✅ ${events.length} événements par défaut créés avec succès!');
     } catch (e) {
       debugPrint('⚠️ Erreur lors de l\'initialisation des événements: $e');
-      // Ne pas lever d'exception, juste un warning
     }
   }
 
-  /// Nettoyer tous les événements (à utiliser avec précaution!)
   Future<void> clearAllEvents() async {
     try {
-      final snapshot = await _firestore.collection('events').get();
-      for (final doc in snapshot.docs) {
-        await doc.reference.delete();
-      }
+      await _supabase.from('events').delete().neq('id', '');
       debugPrint('✅ Tous les événements ont été supprimés.');
     } catch (e) {
       throw Exception('Erreur lors de la suppression des événements: $e');
     }
+  }
+
+  // ========================================
+  // HELPER
+  // ========================================
+
+  /// Pour les streams : attache les registrations à une liste de rows d'events
+  Future<List<Event>> _attachRegistrations(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return [];
+    final eventIds = rows.map((r) => r['id'] as String).toList();
+    final regs = await _supabase
+        .from('registrations')
+        .select('event_id, user_id, status, collation')
+        .inFilter('event_id', eventIds);
+
+    final regsByEvent = <String, List<Map<String, dynamic>>>{};
+    for (final reg in (regs as List)) {
+      final eid = reg['event_id'] as String;
+      regsByEvent.putIfAbsent(eid, () => []).add(Map<String, dynamic>.from(reg));
+    }
+
+    return rows.map((row) {
+      final rowWithRegs = Map<String, dynamic>.from(row);
+      rowWithRegs['registrations'] = regsByEvent[row['id']] ?? [];
+      return Event.fromMap(rowWithRegs);
+    }).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
   }
 }
