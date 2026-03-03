@@ -1,4 +1,5 @@
 // pages/notifications_page.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
@@ -19,11 +20,77 @@ class _NotificationsPageState extends State<NotificationsPage> {
   final Set<String> _readNewMemberIds = {};
   bool _isAdmin = false;
 
+  // Données chargées manuellement (pas de Realtime pour users)
+  List<Map<String, dynamic>> _pendingUsers = [];
+  List<Map<String, dynamic>> _approvedMembers = [];
+  bool _loadingUsers = true;
+
   @override
   void initState() {
     super.initState();
     _loadReadIds();
     _loadUserInfo();
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    if (mounted) setState(() => _loadingUsers = true);
+    await Future.wait([_fetchPendingUsers(), _fetchApprovedMembers()]);
+    if (mounted) setState(() => _loadingUsers = false);
+  }
+
+  Future<void> _fetchPendingUsers() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('approval_status', 'pending')
+          .order('created_at', ascending: false);
+      _pendingUsers = (rows as List).map((row) {
+        DateTime? createdAt;
+        final ca = row['created_at'];
+        if (ca != null) createdAt = DateTime.tryParse(ca as String);
+        return {
+          'id': row['id'] as String,
+          'prenom': row['prenom'] ?? '',
+          'nom': row['nom'] ?? '',
+          'email': row['email'] ?? '',
+          'phone': row['phone'] ?? '',
+          'createdAt': createdAt,
+        };
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Erreur chargement pending users: $e');
+    }
+  }
+
+  Future<void> _fetchApprovedMembers() async {
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final currentUid = Supabase.instance.client.auth.currentUser?.id;
+      final rows = await Supabase.instance.client
+          .from('users')
+          .select()
+          .eq('approval_status', 'approved')
+          .gte('approved_at', sevenDaysAgo.toIso8601String())
+          .order('approved_at', ascending: false);
+      _approvedMembers = (rows as List).where((row) {
+        return row['id'] != currentUid;
+      }).map((row) {
+        DateTime? approvedAt;
+        final aa = row['approved_at'];
+        if (aa != null) approvedAt = DateTime.tryParse(aa as String);
+        return {
+          'id': row['id'] as String,
+          'prenom': row['prenom'] ?? '',
+          'nom': row['nom'] ?? '',
+          'email': row['email'] ?? '',
+          'approvedAt': approvedAt,
+        };
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Erreur chargement approved members: $e');
+    }
   }
 
   Future<void> _loadReadIds() async {
@@ -147,87 +214,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
   }
 
-  // Stream admin : utilisateurs en attente d'approbation
-  Stream<List<Map<String, dynamic>>> _getPendingUsers() {
-    return Supabase.instance.client
-        .from('users')
-        .stream(primaryKey: ['id'])
-        .eq('approval_status', 'pending')
-        .map((rows) {
-      final mapped = rows.map((row) {
-        DateTime? createdAt;
-        final ca = row['created_at'];
-        if (ca != null) {
-          createdAt = DateTime.tryParse(ca as String);
-        }
-        return {
-          'id': row['id'] as String,
-          'prenom': row['prenom'] ?? '',
-          'nom': row['nom'] ?? '',
-          'email': row['email'] ?? '',
-          'phone': row['phone'] ?? '',
-          'createdAt': createdAt,
-        };
-      }).toList();
-
-      mapped.sort((a, b) {
-        final ta = a['createdAt'] as DateTime?;
-        final tb = b['createdAt'] as DateTime?;
-        if (ta == null && tb == null) return 0;
-        if (ta == null) return 1;
-        if (tb == null) return -1;
-        return tb.compareTo(ta);
-      });
-
-      return mapped;
-    });
-  }
-
-  // Stream utilisateurs : nouveaux membres approuvés (7 derniers jours)
-  Stream<List<Map<String, dynamic>>> _getApprovedMembers() {
-    return Supabase.instance.client
-        .from('users')
-        .stream(primaryKey: ['id'])
-        .eq('approval_status', 'approved')
-        .map((rows) {
-      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-      final currentUid = Supabase.instance.client.auth.currentUser?.id;
-
-      final filtered = rows.where((row) {
-        if (row['id'] == currentUid) return false;
-        final approvedAtRaw = row['approved_at'];
-        if (approvedAtRaw == null) return false;
-        final approvedAt = DateTime.tryParse(approvedAtRaw as String);
-        if (approvedAt == null) return false;
-        return approvedAt.isAfter(sevenDaysAgo);
-      }).map((row) {
-        DateTime? approvedAt;
-        final aa = row['approved_at'];
-        if (aa != null) {
-          approvedAt = DateTime.tryParse(aa as String);
-        }
-        return {
-          'id': row['id'] as String,
-          'prenom': row['prenom'] ?? '',
-          'nom': row['nom'] ?? '',
-          'email': row['email'] ?? '',
-          'approvedAt': approvedAt,
-        };
-      }).toList();
-
-      filtered.sort((a, b) {
-        final ta = a['approvedAt'] as DateTime?;
-        final tb = b['approvedAt'] as DateTime?;
-        if (ta == null && tb == null) return 0;
-        if (ta == null) return 1;
-        if (tb == null) return -1;
-        return tb.compareTo(ta);
-      });
-
-      return filtered;
-    });
-  }
-
   Future<void> _approveUser(String uid, String prenom, String nom) async {
     try {
       await Supabase.instance.client.from('users').update({
@@ -235,6 +221,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         'approved_at': DateTime.now().toIso8601String(),
         'role': 'adherent',
       }).eq('id', uid);
+      await _loadUsers(); // Recharge les listes
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -294,6 +281,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         'approval_status': 'rejected',
         'blocked': true,
       }).eq('id', uid);
+      await _loadUsers(); // Recharge les listes
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -423,13 +411,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           const Icon(Icons.person_add, size: 22),
                           const SizedBox(height: 4),
                           const Text('Adhésions', style: TextStyle(fontSize: 12)),
-                          StreamBuilder<List<Map<String, dynamic>>>(
-                            stream: _isAdmin ? _getPendingUsers() : _getApprovedMembers(),
-                            builder: (context, snapshot) {
-                              final data = snapshot.data ?? [];
+                          Builder(
+                            builder: (context) {
                               final count = _isAdmin
-                                  ? data.length
-                                  : data.where((m) => !_readNewMemberIds.contains(m['id'])).length;
+                                  ? _pendingUsers.length
+                                  : _approvedMembers.where((m) => !_readNewMemberIds.contains(m['id'])).length;
                               if (count == 0) return const SizedBox.shrink();
 
                               return Container(
@@ -591,17 +577,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // Vue admin : demandes en attente
   Widget _buildPendingApprovalsView(bool isDark) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _getPendingUsers(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (_loadingUsers) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return Center(child: Text('Erreur: ${snapshot.error}'));
-        }
 
-        final pending = snapshot.data ?? [];
+        final pending = _pendingUsers;
 
         if (pending.isEmpty) {
           return Center(
@@ -756,23 +736,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
             );
           },
         );
-      },
-    );
   }
 
   // Vue utilisateur : nouveaux membres approuvés
   Widget _buildNewMembersView(bool isDark) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _getApprovedMembers(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (_loadingUsers) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return Center(child: Text('Erreur: ${snapshot.error}'));
-        }
 
-        final allMembers = snapshot.data ?? [];
+        final allMembers = _approvedMembers;
 
         if (allMembers.isEmpty) {
           return Center(
@@ -891,8 +863,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
             );
           },
         );
-      },
-    );
   }
 
   Widget _buildMessagesTab(bool isDark) {

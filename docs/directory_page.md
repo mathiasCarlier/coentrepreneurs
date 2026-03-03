@@ -1,14 +1,16 @@
-Résumé de `directory_page.dart`
+Résumé de `directory_page_dynamic.dart`
 
-But: Annuaire statique des membres — affichage de cartes et actions de contact (appel, mail, site).
+But: Annuaire dynamique des membres — affichage des adhérents qui partagent
+leurs infos professionnelles.
 
 Points clés
 
-- `members` : liste statique de map; structure libre mais utilisée de façon cohérente.
+- Données chargées depuis la table `users` (filtre `share_pro_info == true`).
 - `_launchURL` : ouvre `tel:`, `mailto:` ou URL web avec `url_launcher`.
-- Widgets utilitaires : `_buildCard`, `_buildContactInfo`, `_buildActionButtons`, `_buildButton`.
+- Affichage en cartes avec photo, nom, entreprise, compétences.
+- Actions de contact : appel, email, site web.
 
 Conseils
 
-- Si la liste grossit, déplacer `members` dans Firestore et paginer.
-- Valider/normaliser les numéros de téléphone/URLs lors de l'import.
+- Paginer si le nombre d'adhérents devient important.
+- Valider/normaliser les numéros de téléphone/URLs lors de la saisie (settings_page).

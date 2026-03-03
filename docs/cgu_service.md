@@ -10,16 +10,20 @@ Points clés et parties complexes
   - Si le texte des CGU change, incrémentez la version pour forcer les
     utilisateurs à ré-accepter.
 
-- Stockage Firestore
-  - Collection: `cgu_acceptances`
-  - Document ID: `userId`
-  - Champs attendus: `{ userId, hasAccepted: bool, acceptedDate: Timestamp, cguVersion: string }`
-  - `hasUserAcceptedCGU(userId)` lit le document et vérifie `hasAccepted` et
-    `cguVersion == currentCGUVersion`.
+- Stockage Supabase
+  - Table: `cgu_acceptances`
+  - Contrainte unique: `(user_id, cgu_version)`
+  - Champs: `user_id`, `has_accepted` (bool), `accepted_date` (ISO string), `cgu_version` (string)
+  - `hasUserAcceptedCGU(userId)` lit l'enregistrement via `.maybeSingle()` et
+    vérifie `hasAccepted` et `cguVersion == currentCGUVersion`.
 
 - Méthode `acceptCGU(userId)`
-  - Écrit/écrase le document d'acceptation avec la `currentCGUVersion` et
-    l'horodatage actuel.
+  - Utilise une logique select → update ou insert (au lieu d'upsert) pour
+    contourner les limitations de PostgREST avec les contraintes uniques
+    composites et les politiques RLS.
+  - Vérifie d'abord si un enregistrement existe pour ce couple (user_id, cgu_version).
+  - Si oui: update `has_accepted` et `accepted_date`.
+  - Si non: insert un nouvel enregistrement.
 
 Conseils
 

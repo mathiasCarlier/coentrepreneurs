@@ -521,11 +521,11 @@ class _HomePageState extends State<HomePage> {
               }
               final data = userDocSnap.data;
               final approvalStatus = data?['approval_status'] as String?;
-              if (approvalStatus == 'pending') {
-                return _buildPendingApprovalScreen(context, isDark);
-              }
               if (approvalStatus == 'rejected') {
                 return _buildRejectedScreen(context, isDark);
+              }
+              if (approvalStatus != 'approved') {
+                return _buildPendingApprovalScreen(context, isDark);
               }
               return _buildMainContent(context, user);
             },

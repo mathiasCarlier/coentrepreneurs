@@ -93,6 +93,7 @@ class AuthService {
         'prenom': prenom.trim(),
         'phone': phone.trim(),
         'role': role.name,
+        'approval_status': 'pending',
       });
 
       return user_model.User(

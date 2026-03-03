@@ -1,5 +1,7 @@
 // services/event_service.dart
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/event.dart';
@@ -46,13 +48,42 @@ class EventService {
   // LECTURES
   // ========================================
 
-  /// Récupérer tous les événements (stream temps réel)
+  /// Récupérer tous les événements (stream temps réel).
+  /// Écoute à la fois la table `events` et `registrations` pour que
+  /// les cartes se mettent à jour lors d'une inscription ou confirmation.
   Stream<List<Event>> getAllEventsStream() {
-    return _supabase
-        .from('events')
-        .stream(primaryKey: ['id'])
-        .order('date', ascending: true)
-        .asyncMap((rows) => _attachRegistrations(rows));
+    late StreamController<List<Event>> controller;
+    StreamSubscription? eventsSub;
+    StreamSubscription? regsSub;
+
+    void fetchAndEmit() async {
+      try {
+        final events = await getAllEvents();
+        if (!controller.isClosed) controller.add(events);
+      } catch (e) {
+        if (!controller.isClosed) controller.addError(e);
+      }
+    }
+
+    controller = StreamController<List<Event>>(
+      onListen: () {
+        eventsSub = _supabase
+            .from('events')
+            .stream(primaryKey: ['id'])
+            .listen((_) => fetchAndEmit());
+        regsSub = _supabase
+            .from('registrations')
+            .stream(primaryKey: ['id'])
+            .listen((_) => fetchAndEmit());
+      },
+      onCancel: () {
+        eventsSub?.cancel();
+        regsSub?.cancel();
+        controller.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<List<Event>> getAllEvents() async {
@@ -403,30 +434,4 @@ class EventService {
     }
   }
 
-  // ========================================
-  // HELPER
-  // ========================================
-
-  /// Pour les streams : attache les registrations à une liste de rows d'events
-  Future<List<Event>> _attachRegistrations(List<Map<String, dynamic>> rows) async {
-    if (rows.isEmpty) return [];
-    final eventIds = rows.map((r) => r['id'] as String).toList();
-    final regs = await _supabase
-        .from('registrations')
-        .select('event_id, user_id, status, has_collation')
-        .inFilter('event_id', eventIds);
-
-    final regsByEvent = <String, List<Map<String, dynamic>>>{};
-    for (final reg in (regs as List)) {
-      final eid = reg['event_id'] as String;
-      regsByEvent.putIfAbsent(eid, () => []).add(Map<String, dynamic>.from(reg));
-    }
-
-    return rows.map((row) {
-      final rowWithRegs = Map<String, dynamic>.from(row);
-      rowWithRegs['registrations'] = regsByEvent[row['id']] ?? [];
-      return Event.fromMap(rowWithRegs);
-    }).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
-  }
 }

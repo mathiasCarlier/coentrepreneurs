@@ -33,13 +33,32 @@ class CGUService {
   /// Enregistre l'acceptation des CGU par l'utilisateur.
   Future<void> acceptCGU(String userId) async {
     try {
-      final acceptance = CGUAcceptance(
-        userId: userId,
-        hasAccepted: true,
-        acceptedDate: DateTime.now(),
-        cguVersion: currentCGUVersion,
-      );
-      await _supabase.from('cgu_acceptances').upsert(acceptance.toMap());
+      final now = DateTime.now().toIso8601String();
+
+      // Vérifie si une acceptation existe déjà pour cette version
+      final existing = await _supabase
+          .from('cgu_acceptances')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('cgu_version', currentCGUVersion)
+          .maybeSingle();
+
+      if (existing != null) {
+        // Mise à jour de l'enregistrement existant
+        await _supabase
+            .from('cgu_acceptances')
+            .update({'has_accepted': true, 'accepted_date': now})
+            .eq('user_id', userId)
+            .eq('cgu_version', currentCGUVersion);
+      } else {
+        // Nouvel enregistrement
+        await _supabase.from('cgu_acceptances').insert({
+          'user_id': userId,
+          'has_accepted': true,
+          'accepted_date': now,
+          'cgu_version': currentCGUVersion,
+        });
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('Erreur lors de l\'enregistrement de l\'acceptation des CGU: $e');
       rethrow;
