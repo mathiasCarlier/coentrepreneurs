@@ -66,7 +66,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   // NOTE: _submit
   // - Valide le formulaire local, appelle `AuthService.signup` pour créer
-  //   le compte et écrit le document `users/{uid}` côté Firestore (implémenté
+  //   le compte et écrit l'entrée `users` dans Supabase (implémenté
   //   dans `AuthService`).
   // - En cas d'erreur, le message est affiché via `_error`.
 
@@ -146,7 +146,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             validator: (v) {
                               final value = (v ?? '').trim();
                               if (value.isEmpty) return 'Email requis.';
-                              if (!value.contains('@')) {
+                              if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) {
                                 return 'Email invalide.';
                               }
                               return null;

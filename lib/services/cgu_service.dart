@@ -25,7 +25,7 @@ class CGUService {
       final acceptance = CGUAcceptance.fromMap(data);
       return acceptance.hasAccepted;
     } catch (e) {
-      debugPrint('Erreur lors de la vérification des CGU: $e');
+      if (kDebugMode) debugPrint('Erreur lors de la vérification des CGU: $e');
       return false;
     }
   }
@@ -41,7 +41,7 @@ class CGUService {
       );
       await _supabase.from('cgu_acceptances').upsert(acceptance.toMap());
     } catch (e) {
-      debugPrint('Erreur lors de l\'enregistrement de l\'acceptation des CGU: $e');
+      if (kDebugMode) debugPrint('Erreur lors de l\'enregistrement de l\'acceptation des CGU: $e');
       rethrow;
     }
   }

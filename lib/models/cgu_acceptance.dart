@@ -31,4 +31,18 @@ class CGUAcceptance {
       cguVersion: map['cgu_version'] as String,
     );
   }
+
+  CGUAcceptance copyWith({
+    String? userId,
+    bool? hasAccepted,
+    DateTime? acceptedDate,
+    String? cguVersion,
+  }) {
+    return CGUAcceptance(
+      userId: userId ?? this.userId,
+      hasAccepted: hasAccepted ?? this.hasAccepted,
+      acceptedDate: acceptedDate ?? this.acceptedDate,
+      cguVersion: cguVersion ?? this.cguVersion,
+    );
+  }
 }

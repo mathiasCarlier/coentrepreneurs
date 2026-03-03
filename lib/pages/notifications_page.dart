@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:coentrepreneurs/widgets/fullscreen_image_viewer.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -35,15 +36,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
         .maybeSingle();
     final eventIds = data?['read_notification_event_ids'];
     if (eventIds is List && mounted) {
-      setState(() => _readEventIds.addAll(eventIds.cast<String>()));
+      setState(() => _readEventIds.addAll(eventIds.whereType<String>()));
     }
     final messageIds = data?['read_notification_message_ids'];
     if (messageIds is List && mounted) {
-      setState(() => _readMessageIds.addAll(messageIds.cast<String>()));
+      setState(() => _readMessageIds.addAll(messageIds.whereType<String>()));
     }
     final memberIds = data?['read_new_member_ids'];
     if (memberIds is List && mounted) {
-      setState(() => _readNewMemberIds.addAll(memberIds.cast<String>()));
+      setState(() => _readNewMemberIds.addAll(memberIds.whereType<String>()));
     }
   }
 
@@ -84,6 +85,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> _launchUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
+    const allowed = {'http', 'https', 'tel', 'mailto'};
+    if (!allowed.contains(uri.scheme)) return;
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -352,8 +355,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         final eventDay = DateTime(eventDate.year, eventDate.month, eventDate.day);
         return !eventDay.isBefore(todayStart);
       }).map((row) {
-        final eventDate = DateTime.parse(row['date'] as String);
-        final createdAt = DateTime.parse(row['created_at'] as String);
+        final eventDate = DateTime.tryParse(row['date'] as String) ?? DateTime.now();
+        final createdAt = DateTime.tryParse(row['created_at'] as String) ?? DateTime.now();
         return {
           'id': row['id'] as String,
           'theme': row['theme'] ?? 'Événement',
@@ -1059,29 +1062,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       // Image
                       if (msg['imageUrl'] != null) ...[
                         const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: () => _launchUrl(msg['imageUrl'] as String),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              msg['imageUrl'] as String,
-                              height: 180,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return const SizedBox(
-                                  height: 180,
-                                  child: Center(child: CircularProgressIndicator()),
-                                );
-                              },
-                              errorBuilder: (_, _, _) => Container(
-                                height: 60,
-                                color: Colors.grey[200],
-                                child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
-                              ),
-                            ),
-                          ),
+                        FullscreenImageViewer(
+                          imageUrl: msg['imageUrl'] as String,
+                          thumbnailHeight: 180,
                         ),
                       ],
                       // Fichier

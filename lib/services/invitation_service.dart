@@ -47,7 +47,7 @@ class InvitationService {
     required List<Map<String, String>> invitations,
   }) async {
     try {
-      debugPrint('🚀 Création de ${invitations.length} invitation(s)...');
+      if (kDebugMode) debugPrint('🚀 Création de ${invitations.length} invitation(s)...');
 
       for (final inv in invitations) {
         final email = inv['email']?.toLowerCase().trim() ?? '';
@@ -58,7 +58,7 @@ class InvitationService {
           throw Exception('Données invalides: email, prenom et nom sont obligatoires');
         }
 
-        debugPrint('📝 Traitement: $prenom $nom ($email)');
+        if (kDebugMode) debugPrint('📝 Traitement: $prenom $nom ($email)');
 
         // Créer l'invitation
         await _supabase.from('invitations').insert({
@@ -79,7 +79,7 @@ class InvitationService {
 
         if (existingUser != null) {
           final userId = existingUser['id'] as String;
-          debugPrint('   ✅ Utilisateur existant trouvé: $userId');
+          if (kDebugMode) debugPrint('   ✅ Utilisateur existant trouvé: $userId');
           // Upsert pour éviter les doublons
           await _supabase.from('registrations').upsert({
             'event_id': eventId,
@@ -89,9 +89,9 @@ class InvitationService {
         }
       }
 
-      debugPrint('✅ ${invitations.length} invitation(s) créée(s) avec succès!');
+      if (kDebugMode) debugPrint('✅ ${invitations.length} invitation(s) créée(s) avec succès!');
     } catch (e) {
-      debugPrint('❌ Erreur: $e');
+      if (kDebugMode) debugPrint('❌ Erreur: $e');
       throw Exception('Erreur lors de la création des invitations: $e');
     }
   }

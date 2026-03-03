@@ -346,11 +346,11 @@ class EventService {
     try {
       final count = await countEvents();
       if (count > 0) {
-        debugPrint('✅ Des événements existent déjà. Initialisation ignorée.');
+        if (kDebugMode) debugPrint('✅ Des événements existent déjà. Initialisation ignorée.');
         return;
       }
 
-      debugPrint('📝 Initialisation des événements par défaut...');
+      if (kDebugMode) debugPrint('📝 Initialisation des événements par défaut...');
       final now = DateTime.now();
       final events = [
         Event(
@@ -388,16 +388,16 @@ class EventService {
       for (final event in events) {
         await createEvent(event);
       }
-      debugPrint('✅ ${events.length} événements par défaut créés avec succès!');
+      if (kDebugMode) debugPrint('✅ ${events.length} événements par défaut créés avec succès!');
     } catch (e) {
-      debugPrint('⚠️ Erreur lors de l\'initialisation des événements: $e');
+      if (kDebugMode) debugPrint('⚠️ Erreur lors de l\'initialisation des événements: $e');
     }
   }
 
   Future<void> clearAllEvents() async {
     try {
       await _supabase.from('events').delete().neq('id', '');
-      debugPrint('✅ Tous les événements ont été supprimés.');
+      if (kDebugMode) debugPrint('✅ Tous les événements ont été supprimés.');
     } catch (e) {
       throw Exception('Erreur lors de la suppression des événements: $e');
     }

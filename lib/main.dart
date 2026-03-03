@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -18,22 +19,22 @@ import 'package:coentrepreneurs/pages/home_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR');
-  debugPrint('INIT SUPABASE...');
+  if (kDebugMode) debugPrint('INIT SUPABASE...');
   try {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       anonKey: SupabaseConfig.anonKey,
     );
-    debugPrint('SUPABASE OK');
+    if (kDebugMode) debugPrint('SUPABASE OK');
   } catch (e) {
-    debugPrint('SUPABASE ERROR: $e');
+    if (kDebugMode) debugPrint('SUPABASE ERROR: $e');
   }
   runApp(const App());
 }
 
-// NOTE: `main` initialise Firebase et démarre l'app. En environnement de
-// production, on pourrait gérer les erreurs Firebase plus finement (écran
-// d'erreur, retry, logging), ici un simple `print` est utilisé pour debug.
+// NOTE: `main` initialise Supabase et démarre l'app. En environnement de
+// production, on pourrait gérer les erreurs Supabase plus finement (écran
+// d'erreur, retry, logging).
 
 class App extends StatefulWidget {
   const App({super.key});

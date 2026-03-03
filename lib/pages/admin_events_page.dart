@@ -1,6 +1,7 @@
 // pages/admin_events_page.dart - VERSION AVEC FEEDBACK AUTOMATIQUE
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/event_service.dart';
+import 'package:coentrepreneurs/services/storage_service.dart';
 import 'package:coentrepreneurs/widgets/event_guests_section.dart';
 
 class AdminEventsPage extends StatefulWidget {
@@ -672,7 +674,9 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                                 InkWell(
                                   onTap: () async {
                                     final uri = Uri.tryParse(_event.linkUrl!);
-                                    if (uri != null && await canLaunchUrl(uri)) {
+                                    if (uri == null) return;
+                                    if (!{'http', 'https'}.contains(uri.scheme)) return;
+                                    if (await canLaunchUrl(uri)) {
                                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                                     }
                                   },
@@ -717,7 +721,9 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                                 GestureDetector(
                                   onTap: () async {
                                     final uri = Uri.tryParse(_event.imageUrl!);
-                                    if (uri != null && await canLaunchUrl(uri)) {
+                                    if (uri == null) return;
+                                    if (!{'http', 'https'}.contains(uri.scheme)) return;
+                                    if (await canLaunchUrl(uri)) {
                                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                                     }
                                   },
@@ -728,7 +734,7 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                                       height: 180,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
+                                      errorBuilder: (_, _, _) => Container(
                                         height: 60,
                                         color: Colors.grey[200],
                                         child: const Center(child: Icon(Icons.broken_image)),
@@ -768,7 +774,9 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                                 InkWell(
                                   onTap: () async {
                                     final uri = Uri.tryParse(_event.fileUrl!);
-                                    if (uri != null && await canLaunchUrl(uri)) {
+                                    if (uri == null) return;
+                                    if (!{'http', 'https'}.contains(uri.scheme)) return;
+                                    if (await canLaunchUrl(uri)) {
                                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                                     }
                                   },
@@ -1259,13 +1267,13 @@ class _ParticipantsSectionState extends State<_ParticipantsSection> {
             ));
           }
         } catch (e) {
-          debugPrint('Erreur lors de la récupération de l\'utilisateur $userId: $e');
+          if (kDebugMode) debugPrint('Erreur lors de la récupération de l\'utilisateur $userId: $e');
         }
       }
 
       return users;
     } catch (e) {
-      debugPrint('Erreur lors de la récupération des participants: $e');
+      if (kDebugMode) debugPrint('Erreur lors de la récupération des participants: $e');
       return [];
     }
   }
@@ -1477,6 +1485,8 @@ class _EventFormDialogState extends State<_EventFormDialog> {
   String? _existingFileUrl;
   String? _existingFileName;
 
+  final StorageService _storageService = StorageService();
+
   @override
   void initState() {
     super.initState();
@@ -1537,15 +1547,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     });
   }
 
-  Future<String> _uploadBytes(Uint8List bytes, String fileName, String contentType) async {
-    final storage = Supabase.instance.client.storage.from('events');
-    await storage.uploadBinary(
-      fileName,
-      bytes,
-      fileOptions: FileOptions(contentType: contentType, upsert: true),
-    );
-    return storage.getPublicUrl(fileName);
-  }
+
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -1597,11 +1599,11 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       if (_imageBytes != null) {
         final ts = DateTime.now().millisecondsSinceEpoch;
         final ext = _imageExtension ?? 'jpg';
-        final fileName = 'events_attachments/$ts.$ext';
-        imageUrl = await _uploadBytes(
-          _imageBytes!,
-          fileName,
-          'image/jpeg',
+        imageUrl = await _storageService.uploadFile(
+          bucket: 'events',
+          path: 'events_attachments/$ts.$ext',
+          bytes: _imageBytes!,
+          contentType: 'image/jpeg',
         );
       }
 
@@ -1611,11 +1613,11 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       if (_pickedFile != null && _pickedFile!.bytes != null) {
         final ts = DateTime.now().millisecondsSinceEpoch;
         fileName = _pickedFile!.name;
-        final storagePath = 'events_attachments/${ts}_$fileName';
-        fileUrl = await _uploadBytes(
-          _pickedFile!.bytes!,
-          storagePath,
-          'application/octet-stream',
+        fileUrl = await _storageService.uploadFile(
+          bucket: 'events',
+          path: 'events_attachments/${ts}_$fileName',
+          bytes: _pickedFile!.bytes!,
+          contentType: 'application/octet-stream',
         );
       }
 

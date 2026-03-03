@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
                       validator: (v) {
                         final value = (v ?? '').trim();
                         if (value.isEmpty) return 'Email requis.';
-                        if (!value.contains('@')) return 'Email invalide.';
+                        if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) return 'Email invalide.';
                         return null;
                       },
                     ),
@@ -209,7 +209,7 @@ class _LoginPageState extends State<LoginPage> {
                           validator: (v) {
                             final value = (v ?? '').trim();
                             if (value.isEmpty) return 'Email requis.';
-                            if (!value.contains('@')) return 'Email invalide.';
+                            if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(value)) return 'Email invalide.';
                             return null;
                           },
                         ),

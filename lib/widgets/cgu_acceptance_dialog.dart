@@ -1,5 +1,6 @@
 // widgets/cgu_acceptance_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
 
 class CGUAcceptanceDialog extends StatefulWidget {
@@ -360,7 +361,7 @@ class _CGUAcceptanceDialogState extends State<CGUAcceptanceDialog> {
                                       try {
                                         await _cguService.acceptCGU(widget.userId!);
                                       } catch (e) {
-                                        debugPrint('Erreur lors de la sauvegarde des CGU: $e');
+                                        if (kDebugMode) debugPrint('Erreur lors de la sauvegarde des CGU: $e');
                                       }
                                     }
                                     if (mounted) {

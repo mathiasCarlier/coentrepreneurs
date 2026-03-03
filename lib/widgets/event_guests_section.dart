@@ -2,6 +2,7 @@
 // Affiche les ADHÉRENTS INSCRITS à l'événement (pas les invités)
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 
@@ -26,10 +27,10 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
   /// ✅ CORRIGÉ: Affiche les adhérents, pas les invités
   Future<List<Map<String, dynamic>>> _fetchRegisteredUsers() async {
     try {
-      debugPrint('🔍 Récupération des adhérents inscrits: ${widget.registeredUserIds.length}');
+      if (kDebugMode) debugPrint('🔍 Récupération des adhérents inscrits: ${widget.registeredUserIds.length}');
 
       if (widget.registeredUserIds.isEmpty) {
-        debugPrint('⚠️ Aucun adhérent inscrit');
+        if (kDebugMode) debugPrint('⚠️ Aucun adhérent inscrit');
         return [];
       }
 
@@ -44,7 +45,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
               .maybeSingle();
 
           if (userData != null) {
-            debugPrint('✅ Adhérent trouvé: $userId');
+            if (kDebugMode) debugPrint('✅ Adhérent trouvé: $userId');
 
             result.add({
               'userId': userId,
@@ -58,17 +59,17 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
               ),
             });
           } else {
-            debugPrint('⚠️ Adhérent $userId n\'existe pas');
+            if (kDebugMode) debugPrint('⚠️ Adhérent $userId n\'existe pas');
           }
         } catch (e) {
-          debugPrint('❌ Erreur lors de la récupération de l\'adhérent $userId: $e');
+          if (kDebugMode) debugPrint('❌ Erreur lors de la récupération de l\'adhérent $userId: $e');
         }
       }
 
-      debugPrint('📊 Résultat final: ${result.length} adhérents');
+      if (kDebugMode) debugPrint('📊 Résultat final: ${result.length} adhérents');
       return result;
     } catch (e) {
-      debugPrint('❌ Erreur globale: $e');
+      if (kDebugMode) debugPrint('❌ Erreur globale: $e');
       return [];
     }
   }
@@ -123,7 +124,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
 
     if (confirm == true && mounted) {
       try {
-      debugPrint('🗑️ Retrait de l\'adhérent: $userId');
+      if (kDebugMode) debugPrint('🗑️ Retrait de l\'adhérent: $userId');
 
         // ✅ Retirer l'adhérent de la table registrations
         await Supabase.instance.client
@@ -132,7 +133,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
             .eq('event_id', widget.eventId)
             .eq('user_id', userId);
 
-        debugPrint('✅ Adhérent retiré');
+        if (kDebugMode) debugPrint('✅ Adhérent retiré');
 
         if (mounted) {
           setState(() {});
@@ -144,7 +145,7 @@ class _EventGuestsSectionState extends State<EventGuestsSection> {
           );
         }
       } catch (e) {
-        debugPrint('❌ Erreur retrait: $e');
+        if (kDebugMode) debugPrint('❌ Erreur retrait: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

@@ -1,6 +1,7 @@
 // widgets/feedback_dialog.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:coentrepreneurs/models/feedback.dart' as fb_model;
 import 'package:coentrepreneurs/services/feedback_service.dart';
 
@@ -68,7 +69,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         });
       }
     } catch (e) {
-      debugPrint('Erreur lors du chargement du feedback existant: $e');
+      if (kDebugMode) debugPrint('Erreur lors du chargement du feedback existant: $e');
     }
   }
 
@@ -118,7 +119,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       }
     } catch (e) {
       setState(() => _error = 'Erreur: $e');
-      debugPrint('Erreur lors de la soumission du feedback: $e');
+      if (kDebugMode) debugPrint('Erreur lors de la soumission du feedback: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

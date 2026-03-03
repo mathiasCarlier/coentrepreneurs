@@ -1,5 +1,6 @@
 // pages/home_page.dart - VERSION AVEC NOTIFICATIONS
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:badges/badges.dart' as badges;
 import 'package:coentrepreneurs/services/auth_service.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
+import 'package:coentrepreneurs/services/storage_service.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
@@ -361,7 +363,7 @@ class _HomePageState extends State<HomePage> {
         .eq('published', true);
 
     final messagesCount = (publishedMessages as List)
-        .where((doc) => !readMessageIds.contains(doc['id'] as String?))
+        .where((doc) => doc['id'] != null && !readMessageIds.contains(doc['id'] as String))
         .length;
 
     return adherentsCount + eventsCount + messagesCount;
@@ -1155,6 +1157,7 @@ class _MessageFormDialog extends StatefulWidget {
 class _MessageFormDialogState extends State<_MessageFormDialog> {
   late TextEditingController _messageController;
   final TextEditingController _linkController = TextEditingController();
+  final StorageService _storageService = StorageService();
   bool _isSending = false;
   String? _error;
 
@@ -1200,15 +1203,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
     }
   }
 
-  Future<String> _uploadBytes(Uint8List bytes, String path) async {
-    final storage = Supabase.instance.client.storage.from('messages_attachments');
-    await storage.uploadBinary(
-      path,
-      bytes,
-      fileOptions: const FileOptions(upsert: true),
-    );
-    return storage.getPublicUrl(path);
-  }
+
 
   Future<void> _submitMessage() async {
     if (_messageController.text.trim().isEmpty) {
@@ -1229,17 +1224,19 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
 
       if (_imageFile != null && _imageBytes != null) {
         final ext = _imageFile!.name.split('.').last;
-        imageUrl = await _uploadBytes(
-          _imageBytes!,
-          '${widget.user.uid}/${ts}_image.$ext',
+        imageUrl = await _storageService.uploadFile(
+          bucket: 'messages_attachments',
+          path: '${widget.user.uid}/${ts}_image.$ext',
+          bytes: _imageBytes!,
         );
       }
 
       if (_pickedFile != null && _pickedFile!.bytes != null) {
         fileName = _pickedFile!.name;
-        fileUrl = await _uploadBytes(
-          _pickedFile!.bytes!,
-          '${widget.user.uid}/${ts}_$fileName',
+        fileUrl = await _storageService.uploadFile(
+          bucket: 'messages_attachments',
+          path: '${widget.user.uid}/${ts}_$fileName',
+          bytes: _pickedFile!.bytes!,
         );
       }
 
@@ -1271,7 +1268,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         );
       }
     } catch (e) {
-      debugPrint('Error: $e');
+      if (kDebugMode) debugPrint('Error: $e');
       setState(() => _error = 'Erreur: $e');
     } finally {
       if (mounted) setState(() => _isSending = false);

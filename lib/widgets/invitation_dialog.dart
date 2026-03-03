@@ -1,6 +1,7 @@
 // widgets/invitation_dialog.dart - VERSION CORRIGÉE AVEC EMAIL
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 /// Affiche un dialogue pour inviter des personnes à un événement
 /// Retourne: List<Map<String, String>> avec email, prenom, nom
@@ -100,8 +101,8 @@ class _InvitationDialogState extends State<_InvitationDialog> {
         return;
       }
 
-      // ✅ Valider format email (basique)
-      if (!email.contains('@')) {
+      // ✅ Valider format email
+      if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
         setState(() => _errorMessage = 'Email invalide ligne ${i + 1}');
         return;
       }
@@ -113,7 +114,7 @@ class _InvitationDialogState extends State<_InvitationDialog> {
       });
     }
 
-    debugPrint('✅ Invitations valides: $invitations');
+    if (kDebugMode) debugPrint('✅ Invitations valides: $invitations');
     Navigator.of(context).pop(invitations);
   }
 

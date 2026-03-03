@@ -1,10 +1,10 @@
 // Roles applicatifs pour distinguer les permissions côté UI/back-end.
 enum UserRole { admin, adherent, invite }
 
-// Modèle `User` utilisé dans l'application (séparé du `firebase_auth.User`).
-// Contient les champs affichés et persistés dans Firestore (`users/{uid}`).
+// Modèle `User` utilisé dans l'application.
+// Contient les champs affichés et persistés dans la table Supabase `users`.
 // Remarque: la conversion `role.toString().split('.').last` est utilisée
-// pour stocker une représentation texte simple en Firestore.
+// pour stocker une représentation texte simple en base.
 class User {
   final String uid;
   String email;
@@ -37,8 +37,8 @@ class User {
     this.shareProInfo = false,
   });
 
-  /// Convertit l'objet User en JSON
-  Map<String, dynamic> toJson() {
+  /// Convertit l'objet User en map
+  Map<String, dynamic> toMap() {
     return {
       'uid': uid,
       'email': email,
@@ -56,8 +56,8 @@ class User {
     };
   }
 
-  /// Crée un User à partir d'un JSON
-  factory User.fromJson(Map<String, dynamic> json) {
+  /// Crée un User à partir d'une map
+  factory User.fromMap(Map<String, dynamic> json) {
     return User(
       uid: json['uid'] as String,
       email: json['email'] as String,

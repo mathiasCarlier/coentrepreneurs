@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 
 // Service d'authentification — Supabase Auth + table public.users.
-// Interface publique identique à l'ancienne version Firebase :
+// Interface publique :
 // - authStateChanges stream → User? enrichi depuis la table users
 // - login(), signup(), logout(), sendPasswordResetEmail()
 // - isSignedIn (synchrone)
@@ -152,7 +152,7 @@ class AuthService {
         );
       }
     } catch (e) {
-      debugPrint('Erreur lors de la récupération des données utilisateur: $e');
+      if (kDebugMode) debugPrint('Erreur lors de la récupération des données utilisateur: $e');
     }
     return user_model.User(
       uid: supabaseUser.id,
@@ -173,7 +173,7 @@ class AuthService {
           .maybeSingle();
       return data;
     } catch (e) {
-      debugPrint('Erreur lors de la récupération des données: $e');
+      if (kDebugMode) debugPrint('Erreur lors de la récupération des données: $e');
       return null;
     }
   }

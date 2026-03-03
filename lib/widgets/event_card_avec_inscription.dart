@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
@@ -18,7 +19,7 @@ import 'package:coentrepreneurs/widgets/collation_dialog.dart';
 /// 3. **Inscrit** – badge état + bouton "Inviter quelqu'un" ou "Je suis présent".
 /// 4. **Non inscrit** – détails complets + boutons "S'inscrire" / "Refuser".
 ///
-/// Toutes les mutations Firestore passent par [RegistrationService] et [EventService].
+/// Toutes les mutations passent par [RegistrationService] et [EventService].
 class EventCard extends StatefulWidget {
   final Event event;
   final bool isDark;
@@ -167,10 +168,10 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
           );
 
           // ✨ AFFICHER LE DIALOGUE D'INVITATION
-          debugPrint('⏳ Attente de 500ms avant d\'afficher le dialogue d\'invitation...');
+          if (kDebugMode) debugPrint('⏳ Attente de 500ms avant d\'afficher le dialogue d\'invitation...');
           await Future.delayed(const Duration(milliseconds: 500));
           if (mounted) {
-            debugPrint('🔔 Affichage du dialogue d\'invitation');
+            if (kDebugMode) debugPrint('🔔 Affichage du dialogue d\'invitation');
             _showInvitationDialog();
           }
         }
@@ -343,27 +344,27 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
 
   Future<void> _showInvitationDialog() async {
     if (widget.currentUser == null) {
-      debugPrint('❌ Erreur: Pas d\'utilisateur connecté');
+      if (kDebugMode) debugPrint('❌ Erreur: Pas d\'utilisateur connecté');
       return;
     }
-    debugPrint('📨 Ouverture du dialogue d\'invitation...');
+    if (kDebugMode) debugPrint('📨 Ouverture du dialogue d\'invitation...');
     final invitations = await showInvitationDialog(
       context,
       eventId: widget.event.id,
       currentUserId: widget.currentUser!.uid,
     );
 
-    debugPrint('💬 Invitations retournées: $invitations');
+    if (kDebugMode) debugPrint('💬 Invitations retournées: $invitations');
     if (invitations != null && invitations.isNotEmpty && mounted) {
-      debugPrint('✅ Envoi des invitations...');
+      if (kDebugMode) debugPrint('✅ Envoi des invitations...');
       _sendInvitations(invitations);
     } else {
-      debugPrint('⚠️ Aucune invitation à envoyer ou dialogue fermé');
+      if (kDebugMode) debugPrint('⚠️ Aucune invitation à envoyer ou dialogue fermé');
     }
   }
 
 Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
-    debugPrint('🚀 Envoi de ${invitations.length} invitation(s)...');
+    if (kDebugMode) debugPrint('🚀 Envoi de ${invitations.length} invitation(s)...');
     try {
       // ✅ Utiliser createInvitationsWithUsers qui:
       //    • Crée l'utilisateur avec email et rôle "invite"
@@ -384,10 +385,10 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             backgroundColor: Colors.green,
           ),
         );
-        debugPrint('✅ Invitations créées avec succès (emails sauvegardés)!');
+        if (kDebugMode) debugPrint('✅ Invitations créées avec succès (emails sauvegardés)!');
       }
     } catch (e) {
-      debugPrint('❌ Erreur lors de l\'envoi: $e');
+      if (kDebugMode) debugPrint('❌ Erreur lors de l\'envoi: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

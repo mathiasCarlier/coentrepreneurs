@@ -101,6 +101,8 @@ class Event {
       'link_url': linkUrl,
       'image_url': imageUrl,
       'file_url': fileUrl,
+      'file_name': fileName,
+      'collation_menu_text': collationMenuText,
     };
   }
 
@@ -150,6 +152,8 @@ class Event {
       linkUrl: map['link_url'] as String?,
       imageUrl: map['image_url'] as String?,
       fileUrl: map['file_url'] as String?,
+      fileName: map['file_name'] as String?,
+      collationMenuText: map['collation_menu_text'] as String?,
     );
   }
 

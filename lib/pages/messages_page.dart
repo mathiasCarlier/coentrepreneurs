@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:coentrepreneurs/widgets/fullscreen_image_viewer.dart';
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
@@ -238,29 +239,9 @@ class _MessagesPageState extends State<MessagesPage> {
                               style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: () => _launchUrl(data['image_url'] as String),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  data['image_url'] as String,
-                                  height: 200,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const SizedBox(
-                                      height: 200,
-                                      child: Center(child: CircularProgressIndicator()),
-                                    );
-                                  },
-                                  errorBuilder: (_, _, _) => Container(
-                                    height: 80,
-                                    color: Colors.grey[200],
-                                    child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
-                                  ),
-                                ),
-                              ),
+                            FullscreenImageViewer(
+                              imageUrl: data['image_url'] as String,
+                              thumbnailHeight: 200,
                             ),
                           ],
                           // Fichier
@@ -382,6 +363,8 @@ class _MessagesPageState extends State<MessagesPage> {
   Future<void> _launchUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
+    const allowed = {'http', 'https', 'tel', 'mailto'};
+    if (!allowed.contains(uri.scheme)) return;
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

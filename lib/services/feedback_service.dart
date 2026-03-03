@@ -36,7 +36,7 @@ class FeedbackService {
         updatedAt: DateTime.now(),
       );
       await _supabase.from('feedbacks').insert(feedback.toMap());
-      debugPrint('✅ Feedback créé');
+      if (kDebugMode) debugPrint('✅ Feedback créé');
     } catch (e) {
       throw Exception('Erreur lors de la création du feedback: $e');
     }
@@ -55,7 +55,7 @@ class FeedbackService {
         'what_you_learned': whatYouLearned,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', feedbackId);
-      debugPrint('✅ Feedback mis à jour: $feedbackId');
+      if (kDebugMode) debugPrint('✅ Feedback mis à jour: $feedbackId');
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du feedback: $e');
     }
@@ -156,7 +156,7 @@ class FeedbackService {
   Future<void> deleteFeedback(String feedbackId) async {
     try {
       await _supabase.from('feedbacks').delete().eq('id', feedbackId);
-      debugPrint('✅ Feedback supprimé: $feedbackId');
+      if (kDebugMode) debugPrint('✅ Feedback supprimé: $feedbackId');
     } catch (e) {
       throw Exception('Erreur lors de la suppression du feedback: $e');
     }
@@ -165,7 +165,7 @@ class FeedbackService {
   Future<void> deleteEventFeedbacks(String eventId) async {
     try {
       await _supabase.from('feedbacks').delete().eq('event_id', eventId);
-      debugPrint('✅ Feedbacks de l\'événement supprimés');
+      if (kDebugMode) debugPrint('✅ Feedbacks de l\'événement supprimés');
     } catch (e) {
       throw Exception('Erreur lors de la suppression des feedbacks: $e');
     }

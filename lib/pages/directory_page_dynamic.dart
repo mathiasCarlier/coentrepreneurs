@@ -294,7 +294,10 @@ class DirectoryDetailPage extends StatelessWidget {
   });
 
   Future<void> _launchURL(String url) async {
-    final Uri uri = Uri.parse(url);
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    const allowed = {'http', 'https', 'tel', 'mailto'};
+    if (!allowed.contains(uri.scheme)) return;
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
