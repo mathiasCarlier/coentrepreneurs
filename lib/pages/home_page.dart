@@ -24,9 +24,10 @@ import 'package:coentrepreneurs/pages/directory_page_dynamic.dart';
 import 'package:coentrepreneurs/pages/notifications_page.dart';
 import 'package:coentrepreneurs/pages/all_events_page.dart';
 import 'package:coentrepreneurs/pages/admin_users_page.dart';
+import 'package:coentrepreneurs/services/notification_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:typed_data';
+
 
 
 class HomePage extends StatefulWidget {
@@ -39,6 +40,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final CGUService _cguService = CGUService();
   final EventService _eventService = EventService();
+  final NotificationService _notificationService = NotificationService();
   bool _cguCheckCompleted = false;
   bool _userAcceptedCGU = false;
 
@@ -57,6 +59,24 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _checkAndHandleCGU();
     _initializeDefaultEvents();
+    _initPushNotifications();
+  }
+
+  Future<void> _initPushNotifications() async {
+    if (!kIsWeb) return;
+    final auth = context.read<AuthService>(); // capture avant tout await
+    final user = await auth.currentUser;
+    if (user == null) return;
+
+    // N'initialiser les push que pour les utilisateurs approuvés
+    final data = await Supabase.instance.client
+        .from('users')
+        .select('approval_status')
+        .eq('id', user.uid)
+        .maybeSingle();
+    if (data?['approval_status'] != 'approved') return;
+
+    await _notificationService.initialize(user.uid);
   }
 
   @override
@@ -205,7 +225,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _logout() async {
-    final auth = context.read<AuthService>();
+    final auth = context.read<AuthService>(); // capture avant tout await
+    if (kIsWeb) {
+      await _notificationService.deleteSubscription();
+    }
     await auth.logout();
     if (mounted) {
       context.go('/login');
