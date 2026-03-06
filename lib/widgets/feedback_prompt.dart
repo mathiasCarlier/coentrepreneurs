@@ -135,22 +135,23 @@ class _FeedbackPromptState extends State<FeedbackPrompt> {
   }
 
   void _showFeedbackDialog(user_model.User currentUser) {
-    if (kDebugMode) debugPrint('📢 Affichage du dialog');
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => FeedbackDialog(
-        eventId: widget.event.id,
-        userId: currentUser.uid,
-        userEmail: currentUser.email,
-        userPrenom: currentUser.prenom,
-        userNom: currentUser.nom,
-        onSubmitted: () {
-          if (kDebugMode) debugPrint('✅ Feedback soumis');
-          if (mounted) {
-            setState(() {});
-          }
-        },
+    if (kDebugMode) debugPrint('📢 Affichage du formulaire de feedback');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => FeedbackDialog(
+          eventId: widget.event.id,
+          userId: currentUser.uid,
+          userEmail: currentUser.email,
+          userPrenom: currentUser.prenom,
+          userNom: currentUser.nom,
+          onSubmitted: () {
+            if (kDebugMode) debugPrint('✅ Feedback soumis');
+            if (mounted) {
+              setState(() {});
+            }
+          },
+        ),
       ),
     );
   }

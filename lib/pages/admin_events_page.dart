@@ -68,17 +68,40 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
             );
           }
 
-          return ListView.builder(
+          final withSummary = events.where((e) => e.hasSummary).toList();
+          final withoutSummary = events.where((e) => !e.hasSummary).toList();
+
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: events.length,
-            itemBuilder: (context, index) {
-              final event = events[index];
-              return _EventCard(
-                event: event,
-                isDark: isDark,
-                onTap: () => _showEventDetails(context, event),
-              );
-            },
+            children: [
+              if (withoutSummary.isNotEmpty) ...[
+                _SectionHeader(
+                  label: 'Sans compte-rendu',
+                  count: withoutSummary.length,
+                  color: Colors.orange,
+                ),
+                const SizedBox(height: 8),
+                ...withoutSummary.map((event) => _EventCard(
+                  event: event,
+                  isDark: isDark,
+                  onTap: () => _showEventDetails(context, event),
+                )),
+              ],
+              if (withSummary.isNotEmpty) ...[
+                if (withoutSummary.isNotEmpty) const SizedBox(height: 16),
+                _SectionHeader(
+                  label: 'Avec compte-rendu',
+                  count: withSummary.length,
+                  color: Colors.green,
+                ),
+                const SizedBox(height: 8),
+                ...withSummary.map((event) => _EventCard(
+                  event: event,
+                  isDark: isDark,
+                  onTap: () => _showEventDetails(context, event),
+                )),
+              ],
+            ],
           );
         },
       ),
@@ -171,6 +194,57 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
         SnackBar(content: Text('❌ Erreur: $e')),
       );
     }
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _SectionHeader({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

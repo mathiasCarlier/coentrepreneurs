@@ -131,66 +131,39 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Dialog(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.grey[900] : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 20,
-              spreadRadius: 0,
-            ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _existingFeedback != null ? 'Mettre à jour le feedback' : 'Votre avis sur la rencontre',
         ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // En-tête
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Nous aimerions votre avis',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _existingFeedback != null
-                                  ? 'Mettez à jour votre feedback'
-                                  : 'Aidez-nous à améliorer nos événements',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
+        elevation: 0,
+        backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
+        actions: [
+          TextButton(
+            onPressed: _isLoading ? null : _submitFeedback,
+            child: Text(
+              _isLoading
+                  ? 'Envoi...'
+                  : _existingFeedback != null
+                      ? 'Mettre à jour'
+                      : 'Envoyer',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+                  const SizedBox(height: 8),
 
                   // Question 1: Qu'est-ce qui vous a plu
                   Column(
@@ -471,58 +444,15 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
 
                   const SizedBox(height: 24),
 
-                  // Boutons d'action
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(
-                              color: isDark ? Colors.grey[600]! : Colors.grey[300]!,
-                            ),
-                          ),
-                          child: const Text('Annuler'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _submitFeedback,
-                          icon: _isLoading
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                                  ),
-                                )
-                              : const Icon(Icons.check_circle),
-                          label: Text(
-                            _isLoading
-                                ? 'Envoi...'
-                                : _existingFeedback != null
-                                    ? 'Mettre à jour'
-                                    : 'Envoyer',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[600],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (_isLoading) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
+                  ],
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 
   Color _getRatingColor(int rating) {

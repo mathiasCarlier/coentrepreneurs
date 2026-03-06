@@ -20,6 +20,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
   final Set<String> _readNewMemberIds = {};
   bool _isAdmin = false;
 
+  // Messages tab – recherche, tri, affichage des lus
+  final TextEditingController _messageSearchController = TextEditingController();
+  String _messageSearchQuery = '';
+  String _messageSortOrder = 'date'; // 'date' | 'category' | 'alpha'
+  bool _showReadMessages = false;
+
   // Données chargées manuellement (pas de Realtime pour users)
   List<Map<String, dynamic>> _pendingUsers = [];
   List<Map<String, dynamic>> _approvedMembers = [];
@@ -31,6 +37,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _loadReadIds();
     _loadUserInfo();
     _loadUsers();
+    _messageSearchController.addListener(() {
+      setState(() => _messageSearchQuery = _messageSearchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageSearchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsers() async {
@@ -785,13 +800,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 ? DateFormat('dd/MM/yyyy').format(approvedAt)
                 : 'Date inconnue';
 
-            return Opacity(
-              opacity: isRead ? 0.6 : 1.0,
-              child: Card(
+            return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                color: isRead
-                    ? (isDark ? Colors.grey[850] : Colors.grey[100])
-                    : null,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -804,15 +814,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             height: 48,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isRead
-                                  ? (isDark ? Colors.grey[800]! : Colors.grey[200]!)
-                                  : Colors.green[100]!,
+                              color: Colors.green[100]!,
                             ),
                             child: Icon(
                               Icons.person_add,
-                              color: isRead
-                                  ? (isDark ? Colors.grey[600]! : Colors.grey[400]!)
-                                  : Colors.green[700]!,
+                              color: Colors.green[700]!,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -824,9 +830,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   '${member['prenom']} ${member['nom']}',
                                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                                    color: isRead
-                                        ? (isDark ? Colors.grey[500] : Colors.grey[500])
-                                        : null,
                                   ),
                                 ),
                                 Text(
@@ -859,10 +862,240 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ],
                   ),
                 ),
-              ),
             );
           },
         );
+  }
+
+  List<Map<String, dynamic>> _applyMessageFiltersAndSort(List<Map<String, dynamic>> messages) {
+    var filtered = messages;
+
+    // Recherche textuelle (message, userName, category)
+    final q = _messageSearchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      filtered = filtered.where((m) {
+        final msg = (m['message'] as String? ?? '').toLowerCase();
+        final user = (m['userName'] as String? ?? '').toLowerCase();
+        final cat = (m['category'] as String? ?? '').toLowerCase();
+        return msg.contains(q) || user.contains(q) || cat.contains(q);
+      }).toList();
+    }
+
+    // Tri
+    switch (_messageSortOrder) {
+      case 'category':
+        filtered.sort((a, b) =>
+            (a['category'] as String? ?? '').compareTo(b['category'] as String? ?? ''));
+      case 'alpha':
+        filtered.sort((a, b) =>
+            (a['message'] as String? ?? '').compareTo(b['message'] as String? ?? ''));
+      case 'date':
+      default:
+        filtered.sort((a, b) {
+          final ta = a['timestamp'] as DateTime?;
+          final tb = b['timestamp'] as DateTime?;
+          if (ta == null && tb == null) return 0;
+          if (ta == null) return 1;
+          if (tb == null) return -1;
+          return tb.compareTo(ta);
+        });
+    }
+
+    return filtered;
+  }
+
+  Widget _buildMessageCard(Map<String, dynamic> msg, bool isDark) {
+    final isRead = _readMessageIds.contains(msg['id'] as String);
+    final timestamp = msg['timestamp'] as DateTime?;
+    final formattedDate = timestamp != null
+        ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp)
+        : 'Date inconnue';
+
+    const iconColor = Colors.orange;
+    const iconBgColor = Color(0xFFFFE0B2); // orange[100]
+
+    return Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: iconBgColor,
+                    ),
+                    child: Icon(
+                      isRead ? Icons.mark_email_read : Icons.campaign,
+                      color: iconColor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          msg['userName'] as String,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          msg['category'] as String,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isRead)
+                    Icon(Icons.check_circle, size: 18, color: Colors.grey[400]),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  msg['message'] as String,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              // Lien
+              if (msg['linkUrl'] != null) ...[
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () => _launchUrl(msg['linkUrl'] as String),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.blue.withValues(alpha: 0.15) : Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.link, size: 16, color: Colors.blue[700]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            msg['linkUrl'] as String,
+                            style: TextStyle(
+                              color: Colors.blue[700],
+                              decoration: TextDecoration.underline,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(Icons.open_in_new, size: 14, color: Colors.blue[700]),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              // Image
+              if (msg['imageUrl'] != null) ...[
+                const SizedBox(height: 10),
+                FullscreenImageViewer(
+                  imageUrl: msg['imageUrl'] as String,
+                  thumbnailHeight: 180,
+                ),
+              ],
+              // Fichier
+              if (msg['fileUrl'] != null) ...[
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () => _launchUrl(msg['fileUrl'] as String),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            msg['fileName'] as String? ?? 'Télécharger le fichier',
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(Icons.download, size: 18, color: Colors.orange[700]),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[800] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: isDark ? Colors.grey[300] : Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            formattedDate,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isDark ? Colors.grey[300] : Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (!isRead) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _markMessageAsRead(msg['id'] as String),
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Marquer comme vu'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+    );
   }
 
   Widget _buildMessagesTab(bool isDark) {
@@ -879,246 +1112,195 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
         final allMessages = snapshot.data ?? [];
 
-        if (allMessages.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.campaign, size: 64, color: Colors.orange[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Aucun message publié',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Vous êtes à jour !',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+        // Séparer non-lus et lus
+        final unreadAll = allMessages.where((m) => !_readMessageIds.contains(m['id'])).toList();
+        final readAll = allMessages.where((m) => _readMessageIds.contains(m['id'])).toList();
+
+        // Appliquer recherche + tri sur les non-lus (toujours visibles)
+        final unreadFiltered = _applyMessageFiltersAndSort(unreadAll);
+        // Appliquer recherche + tri sur les lus (visibles seulement si toggle)
+        final readFiltered = _showReadMessages ? _applyMessageFiltersAndSort(readAll) : <Map<String, dynamic>>[];
+
+        return Column(
+          children: [
+            // Barre de recherche + tri
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(
+                children: [
+                  // Recherche
+                  TextField(
+                    controller: _messageSearchController,
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher dans les messages…',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _messageSearchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => _messageSearchController.clear(),
+                            )
+                          : null,
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final unread = allMessages.where((m) => !_readMessageIds.contains(m['id'])).toList();
-        final read = allMessages.where((m) => _readMessageIds.contains(m['id'])).toList();
-        final sorted = [...unread, ...read];
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: sorted.length,
-          itemBuilder: (context, index) {
-            final msg = sorted[index];
-            final isRead = _readMessageIds.contains(msg['id'] as String);
-            final timestamp = msg['timestamp'] as DateTime?;
-            final formattedDate = timestamp != null
-                ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp)
-                : 'Date inconnue';
-
-            final iconColor = isRead
-                ? (isDark ? Colors.grey[600]! : Colors.grey[400]!)
-                : Colors.orange[700]!;
-            final iconBgColor = isRead
-                ? (isDark ? Colors.grey[800]! : Colors.grey[200]!)
-                : Colors.orange[100]!;
-            final titleColor = isRead
-                ? (isDark ? Colors.grey[500] : Colors.grey[500])
-                : null;
-
-            return Opacity(
-              opacity: isRead ? 0.6 : 1.0,
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                color: isRead
-                    ? (isDark ? Colors.grey[850] : Colors.grey[100])
-                    : null,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 8),
+                  // Tri + bouton messages lus
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: iconBgColor,
+                      // Sélecteur de tri
+                      Expanded(
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 'date',
+                              icon: Icon(Icons.schedule, size: 16),
+                              label: Text('Date'),
                             ),
-                            child: Icon(
-                              isRead ? Icons.mark_email_read : Icons.campaign,
-                              color: iconColor,
+                            ButtonSegment(
+                              value: 'category',
+                              icon: Icon(Icons.label, size: 16),
+                              label: Text('Catégorie'),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  msg['userName'] as String,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                                    color: titleColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  msg['category'] as String,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isRead)
-                            Icon(Icons.check_circle, size: 18, color: Colors.grey[400]),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[800] : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          msg['message'] as String,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: titleColor,
-                          ),
-                        ),
-                      ),
-                      // Lien
-                      if (msg['linkUrl'] != null) ...[
-                        const SizedBox(height: 10),
-                        InkWell(
-                          onTap: () => _launchUrl(msg['linkUrl'] as String),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.blue.withValues(alpha: 0.15) : Colors.blue[50],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue[200]!),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.link, size: 16, color: Colors.blue[700]),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    msg['linkUrl'] as String,
-                                    style: TextStyle(
-                                      color: Colors.blue[700],
-                                      decoration: TextDecoration.underline,
-                                      fontSize: 12,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Icon(Icons.open_in_new, size: 14, color: Colors.blue[700]),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                      // Image
-                      if (msg['imageUrl'] != null) ...[
-                        const SizedBox(height: 10),
-                        FullscreenImageViewer(
-                          imageUrl: msg['imageUrl'] as String,
-                          thumbnailHeight: 180,
-                        ),
-                      ],
-                      // Fichier
-                      if (msg['fileUrl'] != null) ...[
-                        const SizedBox(height: 10),
-                        InkWell(
-                          onTap: () => _launchUrl(msg['fileUrl'] as String),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange[200]!),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    msg['fileName'] as String? ?? 'Télécharger le fichier',
-                                    style: const TextStyle(fontSize: 12),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Icon(Icons.download, size: 18, color: Colors.orange[700]),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.grey[800] : Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 16,
-                                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    formattedDate,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (!isRead) ...[
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _markMessageAsRead(msg['id'] as String),
-                                icon: const Icon(Icons.check, size: 16),
-                                label: const Text('Marquer comme vu'),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
+                            ButtonSegment(
+                              value: 'alpha',
+                              icon: Icon(Icons.sort_by_alpha, size: 16),
+                              label: Text('A-Z'),
                             ),
                           ],
-                        ],
+                          selected: {_messageSortOrder},
+                          onSelectionChanged: (s) =>
+                              setState(() => _messageSortOrder = s.first),
+                          style: const ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
-            );
-          },
+            ),
+            // Corps scrollable
+            Expanded(
+              child: () {
+                if (allMessages.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.campaign, size: 64, color: Colors.orange[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucun message publié',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Vous êtes à jour !',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (unreadFiltered.isEmpty && !_showReadMessages) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.mark_email_read, size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          _messageSearchQuery.isNotEmpty
+                              ? 'Aucun résultat'
+                              : 'Tous les messages sont lus',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (_messageSearchQuery.isEmpty && readAll.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: () => setState(() => _showReadMessages = true),
+                            icon: const Icon(Icons.visibility, size: 16),
+                            label: Text('Voir les ${readAll.length} messages lus'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Section non-lus
+                    if (unreadFiltered.isNotEmpty) ...[
+                      for (final msg in unreadFiltered) _buildMessageCard(msg, isDark),
+                    ],
+                    // Bouton toggle messages lus
+                    if (readAll.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      OutlinedButton.icon(
+                        onPressed: () => setState(() => _showReadMessages = !_showReadMessages),
+                        icon: Icon(
+                          _showReadMessages ? Icons.visibility_off : Icons.visibility,
+                          size: 16,
+                        ),
+                        label: Text(
+                          _showReadMessages
+                              ? 'Masquer les messages lus (${readAll.length})'
+                              : 'Voir les messages lus (${readAll.length})',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? Colors.grey[400] : Colors.grey[600],
+                          side: BorderSide(
+                            color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    // Section lus (si toggle actif)
+                    if (_showReadMessages && readFiltered.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, size: 14, color: Colors.grey[500]),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Messages lus',
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      for (final msg in readFiltered) _buildMessageCard(msg, isDark),
+                    ],
+                    if (_showReadMessages && readFiltered.isEmpty && _messageSearchQuery.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Aucun message lu ne correspond à la recherche.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[500],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
+                );
+              }(),
+            ),
+          ],
         );
       },
     );
@@ -1181,23 +1363,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
             final eventDate = event['date'] as DateTime;
             final formattedEventDate = DateFormat('dd/MM/yyyy').format(eventDate);
 
-            final iconColor = isRead
-                ? (isDark ? Colors.grey[600]! : Colors.grey[400]!)
-                : Colors.blue[700]!;
-            final iconBgColor = isRead
-                ? (isDark ? Colors.grey[800]! : Colors.grey[200]!)
-                : Colors.blue[100]!;
-            final titleColor = isRead
-                ? (isDark ? Colors.grey[500] : Colors.grey[500])
-                : null;
-
-            return Opacity(
-              opacity: isRead ? 0.6 : 1.0,
-              child: Card(
+            return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                color: isRead
-                    ? (isDark ? Colors.grey[850] : Colors.grey[100])
-                    : null,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -1210,11 +1377,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             height: 48,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: iconBgColor,
+                              color: Colors.blue[100]!,
                             ),
                             child: Icon(
                               isRead ? Icons.event_available : Icons.event,
-                              color: iconColor,
+                              color: Colors.blue[700]!,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -1223,7 +1390,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                               event['theme'],
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                                color: titleColor,
                               ),
                             ),
                           ),
@@ -1283,7 +1449,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ],
                   ),
                 ),
-              ),
             );
           },
         );

@@ -14,7 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Clé VAPID publique (à remplacer après génération des clés)
 // La clé privée doit rester dans les secrets Supabase uniquement.
 // ---------------------------------------------------------------------------
-const String _vapidPublicKey = 'BEXyd_TMcjESDQ2lwxOuYc3-kozK98kTcDlR6YUF5Lv31o6rpJQ80cgSsf_4HjT4-n5aJK-yBWwcC2lYZIjPdcY';
+const String _vapidPublicKey = 'BH-mcoCnWW7AxhCyrwqDdqTklAedi8Xzku0wPXLbW1h0wi3PNH9SXiVk-fGGi78fg7a2XDqzNgTrks5hJFesdpU';
 
 // ---------------------------------------------------------------------------
 // Bridge JS : appelle window._pushUtils défini dans web/push_utils.js

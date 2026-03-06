@@ -140,10 +140,15 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
     final email = memberData['email'] ?? '';
     final phone = memberData['phone'] ?? '';
     final role = memberData['role'] ?? 'adherent';
-    
+    final photoUrl = memberData['photo_url'] as String?;
+
     // Informations professionnelles
     final shareProInfo = memberData['share_pro_info'] ?? false;
     final companyName = shareProInfo ? (memberData['company_name'] ?? '') : '';
+
+    final initials =
+        '${prenom.isNotEmpty ? prenom[0] : ''}${nom != 'N/A' && nom.isNotEmpty ? nom[0] : ''}'
+            .toUpperCase();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12, top: 4),
@@ -164,81 +169,93 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Nom, prénom et badge admin
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // Avatar : photo ou initiales
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: role == 'admin' ? Colors.red[100] : Colors.blue[100],
+                backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? Text(
+                        initials.isEmpty ? '?' : initials,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: role == 'admin' ? Colors.red[700] : Colors.blue[700],
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              // Contenu
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Nom, prénom et badge admin
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '$prenom $nom',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '$prenom $nom',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  if (role == 'admin') ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red[600],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Text(
+                                        'Admin',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                            ),
-                            // Badge Admin
-                            if (role == 'admin') ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[600],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Admin',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
+                              if (companyName.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  companyName,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.orange[700],
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
-                        ),
-                        // Entreprise si partagée
-                        if (companyName.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            companyName,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.orange[700],
-                              fontWeight: FontWeight.w600,
-                            ),
                           ),
-                        ],
+                        ),
+                        Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
                       ],
                     ),
-                  ),
-                  // Icône pour indiquer qu'il faut cliquer
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey[400],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              
-              // Tel et Email en ligne
-              Row(
-                children: [
-                  if (phone.isNotEmpty)
-                    Expanded(
-                      child: Row(
+                    const SizedBox(height: 10),
+                    if (phone.isNotEmpty)
+                      Row(
                         children: [
                           Icon(Icons.phone, size: 16, color: Colors.grey[600]),
                           const SizedBox(width: 6),
@@ -252,26 +269,25 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
                           ),
                         ],
                       ),
-                    ),
-                ],
-              ),
-              if (phone.isNotEmpty && email.isNotEmpty)
-                const SizedBox(height: 8),
-              if (email.isNotEmpty)
-                Row(
-                  children: [
-                    Icon(Icons.email, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        email,
-                        style: const TextStyle(fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    if (phone.isNotEmpty && email.isNotEmpty) const SizedBox(height: 6),
+                    if (email.isNotEmpty)
+                      Row(
+                        children: [
+                          Icon(Icons.email, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              email,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ],
                 ),
+              ),
             ],
           ),
         ),
@@ -318,13 +334,18 @@ class DirectoryDetailPage extends StatelessWidget {
     final email = memberData['email'] ?? '';
     final phone = memberData['phone'] ?? '';
     final role = memberData['role'] ?? 'adherent';
-    
+    final photoUrl = memberData['photo_url'] as String?;
+
     // Informations professionnelles
     final shareProInfo = memberData['share_pro_info'] ?? false;
     final companyName = shareProInfo ? (memberData['company_name'] ?? '') : '';
     final skills = shareProInfo ? (memberData['skills'] ?? '') : '';
     final professionalAddress = shareProInfo ? (memberData['professional_address'] ?? '') : '';
     final website = shareProInfo ? (memberData['website'] ?? '') : '';
+
+    final initials =
+        '${prenom.isNotEmpty && prenom != 'N/A' ? prenom[0] : ''}${nom.isNotEmpty && nom != 'N/A' ? nom[0] : ''}'
+            .toUpperCase();
 
     return Scaffold(
       appBar: AppBar(
@@ -342,7 +363,6 @@ class DirectoryDetailPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  // Use a slightly lighter dark background and stronger border for contrast
                   color: isDark ? Colors.grey[850] : Colors.grey[100],
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
@@ -353,6 +373,27 @@ class DirectoryDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Avatar centré
+                    Center(
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundColor: role == 'admin' ? Colors.red[100] : Colors.blue[100],
+                        backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                            ? NetworkImage(photoUrl)
+                            : null,
+                        child: photoUrl == null || photoUrl.isEmpty
+                            ? Text(
+                                initials.isEmpty ? '?' : initials,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 28,
+                                  color: role == 'admin' ? Colors.red[700] : Colors.blue[700],
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     // Nom et badge
                     Row(
                       children: [

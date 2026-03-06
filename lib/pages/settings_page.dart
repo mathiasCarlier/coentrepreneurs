@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
@@ -33,7 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isEditingPro = false;
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
-  File? _selectedPhoto;
+  XFile? _selectedPhoto;
   final CGUService _cguService = CGUService();
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -112,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
       if (pickedFile != null) {
-        setState(() => _selectedPhoto = File(pickedFile.path));
+        setState(() => _selectedPhoto = pickedFile);
         _uploadPhoto();
       }
     } catch (e) {

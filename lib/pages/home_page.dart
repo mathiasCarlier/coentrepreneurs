@@ -54,9 +54,17 @@ class _HomePageState extends State<HomePage> {
   Timer? _notificationPollingTimer;
   StreamController<int>? _notificationStreamController;
 
+  // Cached streams — évite de recréer un stream (et un timer) à chaque rebuild
+  Stream<user_model.User?>? _authStream;
+  Stream<int>? _notificationCountStream;
+  Stream<Map<String, dynamic>?>? _approvalStream;
+  String? _cachedApprovalUid;
+  Stream<List<Event>>? _eventsStream;
+
   @override
   void initState() {
     super.initState();
+    _authStream = context.read<AuthService>().authStateChanges;
     _checkAndHandleCGU();
     _initializeDefaultEvents();
     _initPushNotifications();
@@ -158,10 +166,19 @@ class _HomePageState extends State<HomePage> {
         onAccepted: () async {
           try {
             await _cguService.acceptCGU(userId);
-            await Supabase.instance.client
+            // Ne remettre en "pending" que si le compte n'est pas déjà approuvé
+            // (évite d'écraser "approved" en cas d'erreur réseau sur le check CGU)
+            final currentData = await Supabase.instance.client
                 .from('users')
-                .update({'approval_status': 'pending'})
-                .eq('id', userId);
+                .select('approval_status')
+                .eq('id', userId)
+                .maybeSingle();
+            if (currentData?['approval_status'] != 'approved') {
+              await Supabase.instance.client
+                  .from('users')
+                  .update({'approval_status': 'pending'})
+                  .eq('id', userId);
+            }
             if (mounted) {
               setState(() => _userAcceptedCGU = true);
               messenger.showSnackBar(
@@ -394,7 +411,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -409,7 +425,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(width: 4),
             // Bouton notifications avec badge
             StreamBuilder<int>(
-              stream: _getTotalNotificationsCount(),
+              stream: _notificationCountStream ??= _getTotalNotificationsCount(),
               builder: (context, snapshot) {
                 final notificationCount = snapshot.data ?? 0;
                 return badges.Badge(
@@ -443,7 +459,7 @@ class _HomePageState extends State<HomePage> {
             ),
             // Bouton toutes les rencontres
             StreamBuilder<user_model.User?>(
-              stream: auth.authStateChanges,
+              stream: _authStream,
               builder: (context, snapshot) {
                 final user = snapshot.data;
                 if (user == null) return const SizedBox.shrink();
@@ -502,7 +518,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: StreamBuilder<user_model.User?>(
-        stream: auth.authStateChanges,
+        stream: _authStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -522,6 +538,11 @@ class _HomePageState extends State<HomePage> {
           // Démarre le listener de blocage dès que l'utilisateur est connu
           _startBlockedListener(user.uid);
 
+          // L'admin a toujours accès complet, même si le check CGU est en cours
+          if (user.role == user_model.UserRole.admin) {
+            return _buildMainContent(context, user);
+          }
+
           if (!_cguCheckCompleted) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -530,14 +551,13 @@ class _HomePageState extends State<HomePage> {
             return _buildAccessDeniedScreen(context, user);
           }
 
-          // L'admin a toujours accès complet
-          if (user.role == user_model.UserRole.admin) {
-            return _buildMainContent(context, user);
-          }
-
           // Pour les autres utilisateurs, vérifier le statut d'approbation via polling
+          if (_cachedApprovalUid != user.uid) {
+            _cachedApprovalUid = user.uid;
+            _approvalStream = _getUserApprovalStream(user.uid);
+          }
           return StreamBuilder<Map<String, dynamic>?>(
-            stream: _getUserApprovalStream(user.uid),
+            stream: _approvalStream,
             builder: (context, userDocSnap) {
               if (userDocSnap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -1034,7 +1054,7 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 16),
         StreamBuilder<List<Event>>(
-          stream: _eventService.getAllEventsStream(),
+          stream: _eventsStream ??= _eventService.getAllEventsStream(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());

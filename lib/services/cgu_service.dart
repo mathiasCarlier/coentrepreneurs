@@ -26,7 +26,8 @@ class CGUService {
       return acceptance.hasAccepted;
     } catch (e) {
       if (kDebugMode) debugPrint('Erreur lors de la vérification des CGU: $e');
-      return false;
+      // En cas d'erreur réseau, on ne bloque pas l'utilisateur
+      return true;
     }
   }
 

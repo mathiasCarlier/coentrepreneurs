@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze lib/pages/messages_page.dart lib/pages/notifications_page.dart)"
+    ]
+  }
+}

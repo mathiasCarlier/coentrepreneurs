@@ -418,6 +418,7 @@ class _AdminUsersPageState extends State<AdminUsersPage>
             final initials =
                 '${prenom.isNotEmpty ? prenom[0] : ''}${nom.isNotEmpty ? nom[0] : ''}'
                     .toUpperCase();
+            final photoUrl = user['photo_url'] as String?;
 
             final Color avatarBg = isBlocked
                 ? Colors.red[100]!
@@ -442,24 +443,23 @@ class _AdminUsersPageState extends State<AdminUsersPage>
                 ),
                 child: Row(
                   children: [
-                    // Avatar avec initiales
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: avatarBg,
-                      ),
-                      child: Center(
-                        child: Text(
-                          initials.isEmpty ? '?' : initials,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: avatarFg,
-                          ),
-                        ),
-                      ),
+                    // Avatar : photo de profil ou initiales
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: avatarBg,
+                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                          ? NetworkImage(photoUrl)
+                          : null,
+                      child: photoUrl == null || photoUrl.isEmpty
+                          ? Text(
+                              initials.isEmpty ? '?' : initials,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: avatarFg,
+                              ),
+                            )
+                          : null,
                     ),
                     const SizedBox(width: 14),
                     // Infos utilisateur
