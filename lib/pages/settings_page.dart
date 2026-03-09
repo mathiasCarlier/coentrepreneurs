@@ -28,6 +28,10 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _professionalAddressController;
   late TextEditingController _websiteController;
 
+  // Contrôleurs pour les champs personnels supplémentaires
+  late TextEditingController _passionsController;
+  DateTime? _memberSince;
+
   bool _isEditing = false;
   bool _isEditingPro = false;
   bool _isSaving = false;
@@ -49,6 +53,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _skillsController = TextEditingController(text: _user.skills ?? '');
     _professionalAddressController = TextEditingController(text: _user.professionalAddress ?? '');
     _websiteController = TextEditingController(text: _user.website ?? '');
+    _passionsController = TextEditingController(text: _user.passions ?? '');
+    _memberSince = _user.memberSince;
 
     // Charger les données les plus récentes depuis Supabase
     _loadUserData();
@@ -73,6 +79,10 @@ class _SettingsPageState extends State<SettingsPage> {
           _user.professionalAddress = data['professional_address'] ?? '';
           _user.website = data['website'] ?? '';
           _user.shareProInfo = data['share_pro_info'] ?? false;
+          _user.passions = data['passions'] as String?;
+          _user.memberSince = data['member_since'] != null
+              ? DateTime.tryParse(data['member_since'] as String)
+              : null;
 
           // Mettre à jour les contrôleurs aussi
           _prenom.text = _user.prenom;
@@ -82,6 +92,8 @@ class _SettingsPageState extends State<SettingsPage> {
           _skillsController.text = _user.skills ?? '';
           _professionalAddressController.text = _user.professionalAddress ?? '';
           _websiteController.text = _user.website ?? '';
+          _passionsController.text = _user.passions ?? '';
+          _memberSince = _user.memberSince;
         });
       }
     } catch (e) {
@@ -98,6 +110,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _skillsController.dispose();
     _professionalAddressController.dispose();
     _websiteController.dispose();
+    _passionsController.dispose();
     super.dispose();
   }
 
@@ -197,6 +210,10 @@ class _SettingsPageState extends State<SettingsPage> {
             'prenom': _prenom.text.trim(),
             'nom': _nom.text.trim(),
             'phone': _phoneController.text.trim(),
+            'member_since': _memberSince?.toIso8601String().substring(0, 10),
+            'passions': _passionsController.text.trim().isEmpty
+                ? null
+                : _passionsController.text.trim(),
           })
           .eq('id', _user.uid);
 
@@ -204,6 +221,10 @@ class _SettingsPageState extends State<SettingsPage> {
       _user.prenom = _prenom.text.trim();
       _user.nom = _nom.text.trim();
       _user.phone = _phoneController.text.trim();
+      _user.memberSince = _memberSince;
+      _user.passions = _passionsController.text.trim().isEmpty
+          ? null
+          : _passionsController.text.trim();
 
       setState(() {
         _isEditing = false;
@@ -867,6 +888,59 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
+                // Date de première adhésion - ÉDITABLE
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _memberSince ?? DateTime.now(),
+                      firstDate: DateTime(1990),
+                      lastDate: DateTime.now(),
+                      helpText: 'Date de première adhésion',
+                      cancelText: 'Annuler',
+                      confirmText: 'Confirmer',
+                    );
+                    if (picked != null) setState(() => _memberSince = picked);
+                  },
+                  child: AbsorbPointer(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        labelText: 'Date de première adhésion',
+                        prefixIcon: const Icon(Icons.calendar_today),
+                        hintText: 'Sélectionner une date',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                      ),
+                      controller: TextEditingController(
+                        text: _memberSince != null
+                            ? '${_memberSince!.day.toString().padLeft(2, '0')}/${_memberSince!.month.toString().padLeft(2, '0')}/${_memberSince!.year}'
+                            : '',
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Passions - ÉDITABLE
+                TextField(
+                  controller: _passionsController,
+                  decoration: InputDecoration(
+                    labelText: 'Passions / Centres d\'intérêt',
+                    prefixIcon: const Icon(Icons.favorite_outline),
+                    hintText: 'ex: Randonnée, Lecture, Photographie...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+
                 // Email - NON ÉDITABLE
                 _InfoItem(
                   icon: Icons.email,
@@ -897,6 +971,8 @@ class _SettingsPageState extends State<SettingsPage> {
                               _prenom.text = user.prenom;
                               _nom.text = user.nom;
                               _phoneController.text = user.phone;
+                              _memberSince = user.memberSince;
+                              _passionsController.text = user.passions ?? '';
                               setState(() => _isEditing = false);
                             },
                       child: const Text('Annuler'),
@@ -956,6 +1032,24 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.phone,
                     label: 'Téléphone',
                     value: user.phone,
+                    isDark: isDark,
+                  ),
+                ],
+                if (user.memberSince != null) ...[
+                  const SizedBox(height: 16),
+                  _InfoItem(
+                    icon: Icons.calendar_today,
+                    label: 'Membre depuis',
+                    value: '${user.memberSince!.day.toString().padLeft(2, '0')}/${user.memberSince!.month.toString().padLeft(2, '0')}/${user.memberSince!.year}',
+                    isDark: isDark,
+                  ),
+                ],
+                if ((user.passions ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _InfoItem(
+                    icon: Icons.favorite_outline,
+                    label: 'Passions',
+                    value: user.passions!,
                     isDark: isDark,
                   ),
                 ],

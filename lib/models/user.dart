@@ -21,6 +21,10 @@ class User {
   String? website;
   bool? shareProInfo; // Contrôle de partage des infos pro
 
+  // Champs personnels supplémentaires
+  DateTime? memberSince;
+  String? passions;
+
   User({
     required this.uid,
     required this.email,
@@ -35,6 +39,9 @@ class User {
     this.professionalAddress,
     this.website,
     this.shareProInfo = false,
+    // Champs personnels supplémentaires
+    this.memberSince,
+    this.passions,
   });
 
   /// Convertit l'objet User en map
@@ -53,6 +60,8 @@ class User {
       'professionalAddress': professionalAddress,
       'website': website,
       'shareProInfo': shareProInfo ?? false,
+      'memberSince': memberSince?.toIso8601String().substring(0, 10),
+      'passions': passions,
     };
   }
 
@@ -72,6 +81,10 @@ class User {
       professionalAddress: json['professionalAddress'] as String?,
       website: json['website'] as String?,
       shareProInfo: (json['shareProInfo'] ?? false) as bool,
+      memberSince: json['memberSince'] != null
+          ? DateTime.tryParse(json['memberSince'] as String)
+          : null,
+      passions: json['passions'] as String?,
     );
   }
 
@@ -102,6 +115,8 @@ class User {
     String? professionalAddress,
     String? website,
     bool? shareProInfo,
+    DateTime? memberSince,
+    String? passions,
   }) {
     return User(
       uid: uid ?? this.uid,
@@ -116,6 +131,8 @@ class User {
       professionalAddress: professionalAddress ?? this.professionalAddress,
       website: website ?? this.website,
       shareProInfo: shareProInfo ?? this.shareProInfo,
+      memberSince: memberSince ?? this.memberSince,
+      passions: passions ?? this.passions,
     );
   }
 
@@ -123,5 +140,6 @@ class User {
   String toString() =>
       'User(uid: $uid, email: $email, prenom: $prenom, nom: $nom, phone: $phone, '
       'photoUrl: $photoUrl, role: $role, companyName: $companyName, skills: $skills, '
-      'professionalAddress: $professionalAddress, website: $website, shareProInfo: $shareProInfo)';
+      'professionalAddress: $professionalAddress, website: $website, shareProInfo: $shareProInfo, '
+      'memberSince: $memberSince, passions: $passions)';
 }
