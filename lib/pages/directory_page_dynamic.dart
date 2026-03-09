@@ -12,6 +12,7 @@ class DirectoryPageDynamic extends StatefulWidget {
 class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  int _refreshKey = 0;
 
   @override
   void dispose() {
@@ -58,6 +59,7 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
           // Liste des adhérents et admins
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
+              key: ValueKey(_refreshKey),
               stream: Supabase.instance.client
                   .from('users')
                   .stream(primaryKey: ['id']),
@@ -119,12 +121,17 @@ class _DirectoryPageDynamicState extends State<DirectoryPageDynamic> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: filteredMembers.length,
-                  itemBuilder: (context, index) {
-                    return _buildCard(context, filteredMembers[index]);
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    setState(() => _refreshKey++);
                   },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: filteredMembers.length,
+                    itemBuilder: (context, index) {
+                      return _buildCard(context, filteredMembers[index]);
+                    },
+                  ),
                 );
               },
             ),
