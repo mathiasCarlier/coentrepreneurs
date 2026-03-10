@@ -114,14 +114,16 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
   }
 
   void _showEventDialog(BuildContext context, {Event? event}) {
-    showDialog(
-      context: context,
-      builder: (context) => _EventFormDialog(
-        eventService: _eventService,
-        event: event,
-        onSaved: () {
-          Navigator.of(context).pop();
-        },
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => _EventFormDialog(
+          eventService: _eventService,
+          event: event,
+          onSaved: () {
+            Navigator.of(context).pop();
+          },
+        ),
       ),
     );
   }
@@ -1775,11 +1777,35 @@ class _EventFormDialogState extends State<_EventFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.event == null ? 'Nouvel événement' : 'Modifier l\'événement'),
-      content: SingleChildScrollView(
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.event == null ? 'Nouvel événement' : 'Modifier l\'événement'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _isLoading
+                ? const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : FilledButton(
+                    onPressed: _submitForm,
+                    child: Text(widget.event == null ? 'Créer' : 'Mettre à jour'),
+                  ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: _themeController,
@@ -2089,22 +2115,6 @@ class _EventFormDialogState extends State<_EventFormDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _submitForm,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(widget.event == null ? 'Créer' : 'Mettre à jour'),
-        ),
-      ],
     );
   }
 }

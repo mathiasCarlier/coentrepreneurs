@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:coentrepreneurs/widgets/badges_widget.dart';
 
 class DirectoryPageDynamic extends StatefulWidget {
   const DirectoryPageDynamic({super.key});
@@ -530,6 +531,10 @@ class DirectoryDetailPage extends StatelessWidget {
                 const SizedBox(height: 24),
               ],
               
+              // Section Badges
+              BadgesSection(userData: memberData),
+              const SizedBox(height: 24),
+
               // Boutons d'action
               if (phone.isNotEmpty || email.isNotEmpty || website.isNotEmpty)
                 Column(

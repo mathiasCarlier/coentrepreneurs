@@ -24,6 +24,7 @@ class User {
   // Champs personnels supplémentaires
   DateTime? memberSince;
   String? passions;
+  String? parrainId;
 
   User({
     required this.uid,
@@ -42,6 +43,7 @@ class User {
     // Champs personnels supplémentaires
     this.memberSince,
     this.passions,
+    this.parrainId,
   });
 
   /// Convertit l'objet User en map
@@ -62,6 +64,7 @@ class User {
       'shareProInfo': shareProInfo ?? false,
       'memberSince': memberSince?.toIso8601String().substring(0, 10),
       'passions': passions,
+      'parrainId': parrainId,
     };
   }
 
@@ -85,6 +88,7 @@ class User {
           ? DateTime.tryParse(json['memberSince'] as String)
           : null,
       passions: json['passions'] as String?,
+      parrainId: json['parrainId'] as String?,
     );
   }
 
@@ -117,6 +121,7 @@ class User {
     bool? shareProInfo,
     DateTime? memberSince,
     String? passions,
+    String? parrainId,
   }) {
     return User(
       uid: uid ?? this.uid,
@@ -133,6 +138,7 @@ class User {
       shareProInfo: shareProInfo ?? this.shareProInfo,
       memberSince: memberSince ?? this.memberSince,
       passions: passions ?? this.passions,
+      parrainId: parrainId ?? this.parrainId,
     );
   }
 

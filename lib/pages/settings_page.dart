@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/widgets/cgu_acceptance_dialog.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
+import 'package:coentrepreneurs/widgets/badges_widget.dart';
 
 class SettingsPage extends StatefulWidget {
   final user_model.User user;
@@ -32,6 +33,11 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _passionsController;
   DateTime? _memberSince;
 
+  // Parrainage
+  String? _selectedParrainId;
+  String? _selectedParrainName;
+  List<Map<String, dynamic>> _adherents = [];
+
   bool _isEditing = false;
   bool _isEditingPro = false;
   bool _isSaving = false;
@@ -55,9 +61,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _websiteController = TextEditingController(text: _user.website ?? '');
     _passionsController = TextEditingController(text: _user.passions ?? '');
     _memberSince = _user.memberSince;
+    _selectedParrainId = _user.parrainId;
 
     // Charger les données les plus récentes depuis Supabase
     _loadUserData();
+    _loadAdherents();
   }
 
   /// Charge les données de l'utilisateur depuis Supabase
@@ -94,10 +102,44 @@ class _SettingsPageState extends State<SettingsPage> {
           _websiteController.text = _user.website ?? '';
           _passionsController.text = _user.passions ?? '';
           _memberSince = _user.memberSince;
+          _selectedParrainId = data['parrain_id'] as String?;
+          // Résoudre le nom du parrain si présent
+          if (_selectedParrainId != null) {
+            final parrain = _adherents.where((a) => a['id'] == _selectedParrainId).toList();
+            _selectedParrainName = parrain.isNotEmpty
+                ? '${parrain.first['prenom']} ${parrain.first['nom']}'
+                : null;
+          }
         });
       }
     } catch (e) {
       if (kDebugMode) debugPrint('Erreur lors du chargement des données: $e');
+    }
+  }
+
+  /// Charge la liste des adhérents pour la sélection du parrain
+  Future<void> _loadAdherents() async {
+    try {
+      final data = await Supabase.instance.client
+          .from('users')
+          .select('id, prenom, nom')
+          .neq('id', _user.uid)
+          .inFilter('role', ['adherent', 'admin'])
+          .order('nom');
+      if (mounted) {
+        setState(() {
+          _adherents = List<Map<String, dynamic>>.from(data as List);
+          // Résoudre le nom du parrain maintenant qu'on a la liste
+          if (_selectedParrainId != null) {
+            final parrain = _adherents.where((a) => a['id'] == _selectedParrainId).toList();
+            _selectedParrainName = parrain.isNotEmpty
+                ? '${parrain.first['prenom']} ${parrain.first['nom']}'
+                : null;
+          }
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Erreur chargement adhérents: $e');
     }
   }
 
@@ -214,6 +256,7 @@ class _SettingsPageState extends State<SettingsPage> {
             'passions': _passionsController.text.trim().isEmpty
                 ? null
                 : _passionsController.text.trim(),
+            'parrain_id': _selectedParrainId,
           })
           .eq('id', _user.uid);
 
@@ -225,6 +268,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _user.passions = _passionsController.text.trim().isEmpty
           ? null
           : _passionsController.text.trim();
+      _user.parrainId = _selectedParrainId;
 
       setState(() {
         _isEditing = false;
@@ -636,6 +680,21 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 32),
                 ],
 
+              // Section Badges (gamification)
+              if (_user.role == user_model.UserRole.adherent ||
+                  _user.role == user_model.UserRole.admin)
+                ...[
+                  BadgesSection(userData: {
+                    'id': _user.uid,
+                    'prenom': _user.prenom,
+                    'nom': _user.nom,
+                    'phone': _user.phone,
+                    'passions': _user.passions,
+                    'member_since': _user.memberSince?.toIso8601String().substring(0, 10),
+                  }),
+                  const SizedBox(height: 32),
+                ],
+
               // Section Sécurité
               _buildSecuritySection(context, isDark),
               const SizedBox(height: 32),
@@ -941,6 +1000,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 16),
 
+                // Parrain - ÉDITABLE (dropdown)
+                if (_adherents.isNotEmpty)
+                  _buildParrainDropdown(isDark),
+                if (_adherents.isNotEmpty) const SizedBox(height: 16),
+
                 // Email - NON ÉDITABLE
                 _InfoItem(
                   icon: Icons.email,
@@ -973,6 +1037,13 @@ class _SettingsPageState extends State<SettingsPage> {
                               _phoneController.text = user.phone;
                               _memberSince = user.memberSince;
                               _passionsController.text = user.passions ?? '';
+                              _selectedParrainId = user.parrainId;
+                              _selectedParrainName = user.parrainId != null
+                                  ? _adherents
+                                      .where((a) => a['id'] == user.parrainId)
+                                      .map((a) => '${a['prenom']} ${a['nom']}')
+                                      .firstOrNull
+                                  : null;
                               setState(() => _isEditing = false);
                             },
                       child: const Text('Annuler'),
@@ -1053,6 +1124,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     isDark: isDark,
                   ),
                 ],
+                if (_selectedParrainName != null) ...[
+                  const SizedBox(height: 16),
+                  _InfoItem(
+                    icon: Icons.person_add_outlined,
+                    label: 'Parrain',
+                    value: _selectedParrainName!,
+                    isDark: isDark,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 _InfoItem(
                   icon: Icons.badge,
@@ -1063,6 +1143,44 @@ class _SettingsPageState extends State<SettingsPage> {
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildParrainDropdown(bool isDark) {
+    final items = [
+      DropdownMenuItem<String>(
+        value: null,
+        child: Text(
+          'Aucun parrain',
+          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+        ),
+      ),
+      ..._adherents.map((a) => DropdownMenuItem<String>(
+            value: a['id'] as String,
+            child: Text('${a['prenom']} ${a['nom']}'),
+          )),
+    ];
+
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedParrainId,
+      items: items,
+      onChanged: (value) => setState(() {
+        _selectedParrainId = value;
+        if (value != null) {
+          final found = _adherents.where((a) => a['id'] == value).toList();
+          _selectedParrainName =
+              found.isNotEmpty ? '${found.first['prenom']} ${found.first['nom']}' : null;
+        } else {
+          _selectedParrainName = null;
+        }
+      }),
+      decoration: InputDecoration(
+        labelText: 'Parrain (qui vous a recommandé ?)',
+        prefixIcon: const Icon(Icons.person_add_outlined),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: isDark ? Colors.grey[800] : Colors.grey[50],
       ),
     );
   }
