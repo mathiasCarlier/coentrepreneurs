@@ -1784,23 +1784,24 @@ class _EventFormDialogState extends State<_EventFormDialog> {
           icon: const Icon(Icons.close),
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: FilledButton(
+            onPressed: _isLoading ? null : _submitForm,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+            ),
             child: _isLoading
-                ? const Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : FilledButton(
-                    onPressed: _submitForm,
-                    child: Text(widget.event == null ? 'Créer' : 'Mettre à jour'),
-                  ),
+                : Text(widget.event == null ? 'Créer l\'événement' : 'Mettre à jour'),
           ),
-        ],
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

@@ -164,6 +164,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Future<String> _getSignedUrl(String stored) async {
+    const marker = '/messages_attachments/';
+    final idx = stored.indexOf(marker);
+    if (idx == -1) return stored;
+    final path = stored.substring(idx + marker.length);
+    return Supabase.instance.client.storage
+        .from('messages_attachments')
+        .createSignedUrl(path, 3600);
+  }
+
   Future<void> _launchUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
@@ -1011,39 +1021,51 @@ class _NotificationsPageState extends State<NotificationsPage> {
               // Image
               if (msg['imageUrl'] != null) ...[
                 const SizedBox(height: 10),
-                FullscreenImageViewer(
-                  imageUrl: msg['imageUrl'] as String,
-                  thumbnailHeight: 180,
+                FutureBuilder<String>(
+                  future: _getSignedUrl(msg['imageUrl'] as String),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox(height: 60, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                    return FullscreenImageViewer(
+                      imageUrl: snapshot.data!,
+                      thumbnailHeight: 180,
+                    );
+                  },
                 ),
               ],
               // Fichier
               if (msg['fileUrl'] != null) ...[
                 const SizedBox(height: 10),
-                InkWell(
-                  onTap: () => _launchUrl(msg['fileUrl'] as String),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                FutureBuilder<String>(
+                  future: _getSignedUrl(msg['fileUrl'] as String),
+                  builder: (context, snapshot) {
+                    final url = snapshot.data ?? msg['fileUrl'] as String;
+                    return InkWell(
+                      onTap: () => _launchUrl(url),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange[200]!),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            msg['fileName'] as String? ?? 'Télécharger le fichier',
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange[200]!),
                         ),
-                        Icon(Icons.download, size: 18, color: Colors.orange[700]),
-                      ],
-                    ),
-                  ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                msg['fileName'] as String? ?? 'Télécharger le fichier',
+                                style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(Icons.download, size: 18, color: Colors.orange[700]),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
               const SizedBox(height: 12),
