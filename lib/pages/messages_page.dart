@@ -231,7 +231,7 @@ class _MessagesPageState extends State<MessagesPage> {
                               ),
                             ),
                           ],
-                          // Image
+                          // Image (bucket privé → URL signée)
                           if (data['image_url'] != null) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -239,12 +239,23 @@ class _MessagesPageState extends State<MessagesPage> {
                               style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 6),
-                            FullscreenImageViewer(
-                              imageUrl: data['image_url'] as String,
-                              thumbnailHeight: 200,
+                            FutureBuilder<String>(
+                              future: _getSignedUrl(data['image_url'] as String),
+                              builder: (context, snap) {
+                                if (!snap.hasData) {
+                                  return const SizedBox(
+                                    height: 80,
+                                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  );
+                                }
+                                return FullscreenImageViewer(
+                                  imageUrl: snap.data!,
+                                  thumbnailHeight: 200,
+                                );
+                              },
                             ),
                           ],
-                          // Fichier
+                          // Fichier (bucket privé → URL signée)
                           if (data['file_url'] != null) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -252,31 +263,42 @@ class _MessagesPageState extends State<MessagesPage> {
                               style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 6),
-                            InkWell(
-                              onTap: () => _launchUrl(data['file_url'] as String),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                            FutureBuilder<String>(
+                              future: _getSignedUrl(data['file_url'] as String),
+                              builder: (context, snap) {
+                                if (!snap.hasData) {
+                                  return const SizedBox(
+                                    height: 48,
+                                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  );
+                                }
+                                return InkWell(
+                                  onTap: () => _launchUrl(snap.data!),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.orange[200]!),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        data['file_name'] as String? ?? 'Télécharger le fichier',
-                                        style: const TextStyle(fontSize: 13),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? Colors.orange.withValues(alpha: 0.15) : Colors.orange[50],
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.orange[200]!),
                                     ),
-                                    Icon(Icons.download, size: 18, color: Colors.orange[700]),
-                                  ],
-                                ),
-                              ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.insert_drive_file, size: 20, color: Colors.orange[700]),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            data['file_name'] as String? ?? 'Télécharger le fichier',
+                                            style: const TextStyle(fontSize: 13),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Icon(Icons.download, size: 18, color: Colors.orange[700]),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                           const SizedBox(height: 16),
@@ -358,6 +380,24 @@ class _MessagesPageState extends State<MessagesPage> {
         },
       ),
     );
+  }
+
+  /// Génère une URL signée pour les fichiers du bucket privé messages_attachments.
+  /// Fonctionne avec les anciennes URLs publiques stockées ET avec de simples chemins.
+  Future<String> _getSignedUrl(String stored) async {
+    const marker = '/messages_attachments/';
+    String path;
+    final idx = stored.indexOf(marker);
+    if (idx != -1) {
+      path = stored.substring(idx + marker.length);
+    } else if (!stored.startsWith('http')) {
+      path = stored;
+    } else {
+      return stored; // URL non gérée, retourner telle quelle
+    }
+    return Supabase.instance.client.storage
+        .from('messages_attachments')
+        .createSignedUrl(path, 3600); // valide 1 heure
   }
 
   Future<void> _launchUrl(String url) async {
