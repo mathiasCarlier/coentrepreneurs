@@ -3,6 +3,11 @@ node_modules/
 
 # Exports de données
 backup.json
+analyze_out.txt
+
+# Variables d'environnement
+.env
+.env.*
 
 # Clés sensibles — ne jamais commiter
 serviceAccountKey.json
