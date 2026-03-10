@@ -39,6 +39,7 @@ Deno.serve(async (req: Request) => {
           body: notifBody,
           url: '/home',
         }),
+        signal: AbortSignal.timeout(20_000),
       },
     );
 

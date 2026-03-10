@@ -25,6 +25,7 @@ Deno.serve(async (req: Request) => {
           body: `Un nouvel événement a été créé : ${event.theme || event.title || 'Voir les détails'}`,
           url: '/home',
         }),
+        signal: AbortSignal.timeout(20_000),
       },
     );
 

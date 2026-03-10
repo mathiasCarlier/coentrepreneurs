@@ -34,6 +34,7 @@ Deno.serve(async (req: Request) => {
           body: `${displayName} souhaite rejoindre la plateforme.`,
           url: '/home',
         }),
+        signal: AbortSignal.timeout(20_000),
       },
     );
 
