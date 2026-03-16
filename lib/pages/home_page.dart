@@ -918,6 +918,19 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Center(
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              child: _ContactButton(
+                icon: Icons.favorite_outline,
+                label: 'Merci qui ?',
+                color: Colors.green,
+                onPressed: () =>
+                    _showMessageDialog(context, user, 'Merci qui'),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1362,7 +1375,9 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
                 color: isDark ? Colors.white : Colors.black87,
               ),
               decoration: InputDecoration(
-                hintText: 'Écrivez votre message ici...',
+                hintText: widget.category == 'Merci qui'
+                    ? 'Indiquez qui vous a aidé et comment...'
+                    : 'Écrivez votre message ici...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
