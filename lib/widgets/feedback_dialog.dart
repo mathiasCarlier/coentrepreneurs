@@ -139,17 +139,21 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         elevation: 0,
         backgroundColor: isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _submitFeedback,
-            child: Text(
-              _isLoading
-                  ? 'Envoi...'
-                  : _existingFeedback != null
-                      ? 'Mettre à jour'
-                      : 'Envoyer',
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _submitFeedback,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                _isLoading
+                    ? 'Envoi...'
+                    : _existingFeedback != null
+                        ? 'Mettre à jour'
+                        : 'Envoyer',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ),

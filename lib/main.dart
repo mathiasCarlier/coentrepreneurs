@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'supabase_config.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
+import 'package:coentrepreneurs/services/theme_service.dart';
 import 'package:coentrepreneurs/router_utils.dart';
 import 'package:coentrepreneurs/pages/login_page.dart';
 import 'package:coentrepreneurs/pages/signup_page.dart';
@@ -19,6 +20,11 @@ import 'package:coentrepreneurs/pages/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Sur Safari, google_fonts peut échouer à charger les fonts en réseau.
+  // On désactive le fetch runtime pour éviter le texte invisible.
+  if (kIsWeb) {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  }
   await initializeDateFormatting('fr_FR');
   if (kDebugMode) debugPrint('INIT SUPABASE...');
   try {
@@ -67,21 +73,29 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    return Provider<AuthService>.value(
-      value: _authService,
-      child: MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        title: 'Coentrepreneurs',
-        locale: const Locale('fr', 'FR'),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('fr', 'FR')],
-        theme: _buildLightTheme(),
-        darkTheme: _buildDarkTheme(),
-        routerConfig: _router,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ThemeNotifier>(create: (_) => ThemeNotifier()),
+        Provider<AuthService>.value(value: _authService),
+      ],
+      child: Consumer<ThemeNotifier>(
+        builder: (context, themeNotifier, _) {
+          return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            title: 'Coentrepreneurs',
+            locale: const Locale('fr', 'FR'),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('fr', 'FR')],
+            theme: _buildLightTheme(),
+            darkTheme: _buildDarkTheme(),
+            themeMode: themeNotifier.mode,
+            routerConfig: _router,
+          );
+        },
       ),
     );
   }
@@ -143,6 +157,9 @@ ThemeData _buildDarkTheme() {
   );
   final textTheme = GoogleFonts.interTextTheme(
     ThemeData(brightness: Brightness.dark).textTheme,
+  ).apply(
+    bodyColor: scheme.onSurface,
+    displayColor: scheme.onSurface,
   );
 
   return ThemeData(

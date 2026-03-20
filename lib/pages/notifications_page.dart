@@ -19,6 +19,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   final Set<String> _readMessageIds = {};
   final Set<String> _readNewMemberIds = {};
   bool _isAdmin = false;
+  String? _currentUserId;
 
   // Messages tab – recherche, tri, affichage des lus
   final TextEditingController _messageSearchController = TextEditingController();
@@ -141,6 +142,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final role = data?['role'] as String? ?? '';
     if (mounted) {
       setState(() {
+        _currentUserId = uid;
         _isAdmin = role == 'admin' || role.contains('admin');
       });
     }
@@ -184,6 +186,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  bool _isMessageRead(Map<String, dynamic> msg) {
+    if (_readMessageIds.contains(msg['id'] as String)) return true;
+    // Messages envoyés par l'utilisateur courant sont considérés comme déjà lus
+    if (_currentUserId != null && msg['user_id'] == _currentUserId) return true;
+    return false;
+  }
+
   Future<void> _markMessageAsRead(String messageId) async {
     setState(() => _readMessageIds.add(messageId));
     final uid = Supabase.instance.client.auth.currentUser?.id;
@@ -215,6 +224,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         }
         return {
           'id': row['id'] as String,
+          'user_id': row['user_id'] as String?,
           'userName': row['userName'] ?? row['user_name'] ?? '',
           'category': row['category'] ?? '',
           'message': row['message'] ?? '',
@@ -547,7 +557,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             stream: _getPublishedMessages(),
                             builder: (context, snapshot) {
                               final count = (snapshot.data ?? [])
-                                  .where((m) => !_readMessageIds.contains(m['id']))
+                                  .where((m) => !_isMessageRead(m))
                                   .length;
                               if (count == 0) return const SizedBox.shrink();
 
@@ -915,7 +925,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildMessageCard(Map<String, dynamic> msg, bool isDark) {
-    final isRead = _readMessageIds.contains(msg['id'] as String);
+    final isRead = _isMessageRead(msg);
     final timestamp = msg['timestamp'] as DateTime?;
     final formattedDate = timestamp != null
         ? DateFormat('dd/MM/yyyy HH:mm').format(timestamp)
@@ -1135,8 +1145,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         final allMessages = snapshot.data ?? [];
 
         // Séparer non-lus et lus
-        final unreadAll = allMessages.where((m) => !_readMessageIds.contains(m['id'])).toList();
-        final readAll = allMessages.where((m) => _readMessageIds.contains(m['id'])).toList();
+        final unreadAll = allMessages.where((m) => !_isMessageRead(m)).toList();
+        final readAll = allMessages.where((m) => _isMessageRead(m)).toList();
 
         // Appliquer recherche + tri sur les non-lus (toujours visibles)
         final unreadFiltered = _applyMessageFiltersAndSort(unreadAll);

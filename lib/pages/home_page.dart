@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:badges/badges.dart' as badges;
 
 import 'package:coentrepreneurs/services/auth_service.dart';
+import 'package:coentrepreneurs/services/theme_service.dart';
 import 'package:coentrepreneurs/services/cgu_service.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/services/storage_service.dart';
@@ -509,6 +510,13 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         actions: [
+          Consumer<ThemeNotifier>(
+            builder: (context, themeNotifier, _) {
+              final icon = themeNotifier.isDark ? const Icon(Icons.light_mode, size: 24) : const Icon(Icons.dark_mode, size: 24);
+              final tooltip = themeNotifier.isDark ? 'Mode clair' : 'Mode sombre';
+              return IconButton(icon: icon, tooltip: tooltip, onPressed: themeNotifier.toggle);
+            },
+          ),
           IconButton(
             onPressed: _logout,
             icon: const Icon(Icons.logout, size: 24),
@@ -1307,6 +1315,7 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         'message': _messageController.text.trim(),
         'created_at': DateTime.now().toIso8601String(),
         'read': false,
+        'read_by': [widget.user.uid],
         if (link.isNotEmpty) 'link_url': link,
         if (imageUrl != null) 'image_url': imageUrl,
         if (fileUrl != null) 'file_url': fileUrl,
@@ -1342,13 +1351,17 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         backgroundColor:
             isDark ? const Color.fromARGB(255, 17, 17, 17) : Colors.white,
         actions: [
-          TextButton(
-            onPressed: _isSending ? null : _submitMessage,
-            child: Text(
-              'Envoyer',
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            child: ElevatedButton(
+              onPressed: _isSending ? null : _submitMessage,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'Envoyer',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ),

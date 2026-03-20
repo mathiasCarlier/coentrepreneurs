@@ -62,10 +62,14 @@ class Event {
   double get registrationPercentage =>
       maxParticipants > 0 ? currentParticipants / maxParticipants : 0;
 
+  bool get hasTime => date.hour != 0 || date.minute != 0;
+
   String get formattedDate {
     final months = ['jan', 'fév', 'mar', 'avr', 'mai', 'jun',
                    'jul', 'aoû', 'sep', 'oct', 'nov', 'déc'];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
+    final d = '${date.day} ${months[date.month - 1]} ${date.year}';
+    if (!hasTime) return d;
+    return '$d à ${date.hour}h${date.minute.toString().padLeft(2, '0')}';
   }
 
   bool get isDefinedIntervenant => intervenant.isNotEmpty;

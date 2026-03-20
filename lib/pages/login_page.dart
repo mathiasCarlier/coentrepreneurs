@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
+import 'package:coentrepreneurs/services/theme_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -166,7 +167,18 @@ class _LoginPageState extends State<LoginPage> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Connexion')),
+      appBar: AppBar(
+        title: const Text('Connexion'),
+        actions: [
+          Consumer<ThemeNotifier>(
+            builder: (context, themeNotifier, _) {
+              final icon = themeNotifier.isDark ? const Icon(Icons.light_mode) : const Icon(Icons.dark_mode);
+              final tooltip = themeNotifier.isDark ? 'Mode clair' : 'Mode sombre';
+              return IconButton(icon: icon, tooltip: tooltip, onPressed: themeNotifier.toggle);
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

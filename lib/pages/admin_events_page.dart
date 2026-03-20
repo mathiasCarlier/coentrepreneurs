@@ -263,7 +263,9 @@ class _EventCard extends StatelessWidget {
   });
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    final d = '${date.day}/${date.month}/${date.year}';
+    if (date.hour == 0 && date.minute == 0) return d;
+    return '$d à ${date.hour}h${date.minute.toString().padLeft(2, '0')}';
   }
 
   String _getStatusLabel() {
@@ -594,7 +596,9 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    final d = '${date.day}/${date.month}/${date.year}';
+    if (date.hour == 0 && date.minute == 0) return d;
+    return '$d à ${date.hour}h${date.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -1542,6 +1546,7 @@ class _EventFormDialogState extends State<_EventFormDialog> {
   late TextEditingController _lieuController;
   late TextEditingController _maxParticipantsController;
   late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
   bool _isLoading = false;
   String? _error;
 
@@ -1574,6 +1579,8 @@ class _EventFormDialogState extends State<_EventFormDialog> {
       text: widget.event?.maxParticipants.toString() ?? '30',
     );
     _selectedDate = widget.event?.date ?? DateTime.now();
+    final d = _selectedDate;
+    _selectedTime = TimeOfDay(hour: d.hour, minute: d.minute);
 
     // Pré-remplir la collation si édition
     _hasCollation = widget.event?.hasCollation ?? false;
@@ -1637,6 +1644,16 @@ class _EventFormDialogState extends State<_EventFormDialog> {
     }
   }
 
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null) {
+      setState(() => _selectedTime = picked);
+    }
+  }
+
   Future<void> _submitForm() async {
     if (_themeController.text.trim().isEmpty ||
         _intervenantController.text.trim().isEmpty ||
@@ -1697,9 +1714,17 @@ class _EventFormDialogState extends State<_EventFormDialog> {
         );
       }
 
+      final dateWithTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
       final event = Event(
         id: widget.event?.id ?? '',
-        date: _selectedDate,
+        date: dateWithTime,
         theme: _themeController.text.trim(),
         intervenant: _intervenantController.text.trim(),
         entreprise: _entrepriseController.text.trim(),
@@ -1863,13 +1888,28 @@ class _EventFormDialogState extends State<_EventFormDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isLoading ? null : _pickDate,
-                icon: const Icon(Icons.calendar_today),
-                label: Text('Date: ${_formatDate(_selectedDate)}'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _pickDate,
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text('Date: ${_formatDate(_selectedDate)}'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _pickTime,
+                    icon: const Icon(Icons.access_time),
+                    label: Text(
+                      _selectedTime.hour == 0 && _selectedTime.minute == 0
+                          ? 'Heure (optionnel)'
+                          : 'Heure: ${_selectedTime.hour}h${_selectedTime.minute.toString().padLeft(2, '0')}',
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             const Divider(),

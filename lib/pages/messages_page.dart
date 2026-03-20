@@ -13,6 +13,21 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
+  String? _currentAdminId;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentAdminId = Supabase.instance.client.auth.currentUser?.id;
+  }
+
+  bool _isReadByMe(Map<String, dynamic> data) {
+    if (_currentAdminId == null) return false;
+    final readBy = data['read_by'];
+    if (readBy is List) return readBy.contains(_currentAdminId);
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -109,7 +124,7 @@ class _MessagesPageState extends State<MessagesPage> {
                           ],
                         ),
                       ),
-                      if (data['read'] != true)
+                      if (!_isReadByMe(data))
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -305,7 +320,7 @@ class _MessagesPageState extends State<MessagesPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              if (data['read'] != true)
+                              if (!_isReadByMe(data))
                                 ElevatedButton.icon(
                                   onPressed: () => _markAsRead(messageId),
                                   icon: const Icon(Icons.check, size: 18, color: Colors.white),
@@ -411,10 +426,27 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 
   Future<void> _publishMessage(String id) async {
+    final uid = _currentAdminId;
     try {
       await Supabase.instance.client
           .from('messages')
           .update({'published': true}).eq('id', id);
+
+      // Auto-marquer comme lu dans les notifications pour l'admin qui publie
+      if (uid != null) {
+        final userData = await Supabase.instance.client
+            .from('users')
+            .select('read_notification_message_ids')
+            .eq('id', uid)
+            .maybeSingle();
+        final currentIds = List<String>.from(userData?['read_notification_message_ids'] ?? []);
+        if (!currentIds.contains(id)) {
+          currentIds.add(id);
+          await Supabase.instance.client
+              .from('users')
+              .update({'read_notification_message_ids': currentIds}).eq('id', uid);
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -437,11 +469,21 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 
   Future<void> _markAsRead(String id) async {
+    final uid = _currentAdminId;
+    if (uid == null) return;
     try {
-      await Supabase.instance.client
+      final data = await Supabase.instance.client
           .from('messages')
-          .update({'read': true}).eq('id', id);
-
+          .select('read_by')
+          .eq('id', id)
+          .single();
+      final readBy = List<String>.from(data['read_by'] ?? []);
+      if (!readBy.contains(uid)) {
+        readBy.add(uid);
+        await Supabase.instance.client
+            .from('messages')
+            .update({'read_by': readBy}).eq('id', id);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
