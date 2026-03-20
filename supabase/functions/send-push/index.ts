@@ -36,6 +36,33 @@ Deno.serve(async (req: Request) => {
       url?: string;
     };
 
+    // Validation du payload
+    if (!payload.title || typeof payload.title !== 'string' || payload.title.trim() === '') {
+      return new Response(
+        JSON.stringify({ error: 'Champ title manquant ou invalide' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    if (!payload.body || typeof payload.body !== 'string' || payload.body.trim() === '') {
+      return new Response(
+        JSON.stringify({ error: 'Champ body manquant ou invalide' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const allowedRoles = ['admin', 'adherent', 'invite'];
+    if (payload.role !== undefined && !allowedRoles.includes(payload.role)) {
+      return new Response(
+        JSON.stringify({ error: `Rôle invalide : ${payload.role}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    if (payload.user_ids !== undefined && (!Array.isArray(payload.user_ids) || payload.user_ids.length > 500)) {
+      return new Response(
+        JSON.stringify({ error: 'user_ids invalide ou trop grand (max 500)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Utiliser la clé service_role pour contourner le RLS
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

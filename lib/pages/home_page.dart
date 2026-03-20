@@ -286,6 +286,15 @@ class _HomePageState extends State<HomePage> {
     return controller.stream;
   }
 
+  /// Force un rafraîchissement immédiat du compteur de notifications.
+  void _refreshNotificationCount() {
+    _notificationCountStream = null;
+    _notificationStreamController?.close();
+    _notificationPollingTimer?.cancel();
+    _notificationStreamController = null;
+    if (mounted) setState(() {});
+  }
+
   /// Returns a stream of the total notification count, polled every 30 seconds.
   Stream<int> _getTotalNotificationsCount() {
     _notificationStreamController?.close();
@@ -450,7 +459,7 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(
                           builder: (context) => const NotificationsPage(),
                         ),
-                      );
+                      ).then((_) => _refreshNotificationCount());
                     },
                     icon: const Icon(Icons.mail_outline, size: 24),
                     tooltip: 'Notifications',
