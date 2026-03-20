@@ -27,14 +27,15 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Rencontres à venir (non terminées)
     const { data: events } = await supabase
       .from('events')
       .select('id')
-      .gte('date', today)
+      .gte('date', startOfToday)
       .neq('status', 'finished');
     const eventIds = new Set<string>((events ?? []).map((e: { id: string }) => e.id));
 
