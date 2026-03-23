@@ -458,6 +458,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEventImage(),
         // Date
         Text(
           widget.event.formattedDate,
@@ -507,6 +508,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEventImage(),
         // En-tête
         Text(
           widget.event.formattedDate,
@@ -649,6 +651,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEventImage(),
         // Date + badge "Refusé"
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -734,6 +737,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEventImage(),
         // En-tête avec badge selon état
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -908,6 +912,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEventImage(),
         // En-tête avec badge "Présent ✅"
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1049,6 +1054,24 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
   // ========================================
   // WIDGETS HELPERS
   // ========================================
+
+  Widget _buildEventImage() {
+    if (widget.event.imageUrl == null || widget.event.imageUrl!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          widget.event.imageUrl!,
+          width: double.infinity,
+          fit: BoxFit.fitWidth,
+          errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+        ),
+      ),
+    );
+  }
 
   // ========================================
   // COMPTE-RENDU (événement terminé)
