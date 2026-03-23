@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'package:sentry_flutter/sentry_flutter.dart';
+
 import 'supabase_config.dart';
 
 import 'package:coentrepreneurs/services/auth_service.dart';
@@ -19,24 +21,39 @@ import 'package:coentrepreneurs/pages/signup_page.dart';
 import 'package:coentrepreneurs/pages/home_page.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Sur Safari, google_fonts peut échouer à charger les fonts en réseau.
-  // On désactive le fetch runtime pour éviter le texte invisible.
-  if (kIsWeb) {
-    GoogleFonts.config.allowRuntimeFetching = false;
-  }
-  await initializeDateFormatting('fr_FR');
-  if (kDebugMode) debugPrint('INIT SUPABASE...');
-  try {
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      anonKey: SupabaseConfig.anonKey,
-    );
-    if (kDebugMode) debugPrint('SUPABASE OK');
-  } catch (e) {
-    if (kDebugMode) debugPrint('SUPABASE ERROR: $e');
-  }
-  runApp(const App());
+  await SentryFlutter.init(
+    (options) {
+      // Remplacer par le DSN de votre projet Sentry (sentry.io > Settings > DSN)
+      options.dsn = const String.fromEnvironment(
+        'SENTRY_DSN',
+        defaultValue: '',
+      );
+      // N'envoie les erreurs qu'en production
+      options.environment = kDebugMode ? 'debug' : 'production';
+      // Capture 20 % des transactions pour les performances
+      options.tracesSampleRate = kDebugMode ? 0.0 : 0.2;
+    },
+    appRunner: () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      // Sur Safari, google_fonts peut échouer à charger les fonts en réseau.
+      // On désactive le fetch runtime pour éviter le texte invisible.
+      if (kIsWeb) {
+        GoogleFonts.config.allowRuntimeFetching = false;
+      }
+      await initializeDateFormatting('fr_FR');
+      if (kDebugMode) debugPrint('INIT SUPABASE...');
+      try {
+        await Supabase.initialize(
+          url: SupabaseConfig.url,
+          anonKey: SupabaseConfig.anonKey,
+        );
+        if (kDebugMode) debugPrint('SUPABASE OK');
+      } catch (e) {
+        if (kDebugMode) debugPrint('SUPABASE ERROR: $e');
+      }
+      runApp(const App());
+    },
+  );
 }
 
 // NOTE: `main` initialise Supabase et démarre l'app. En environnement de

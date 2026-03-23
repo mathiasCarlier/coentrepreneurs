@@ -7,6 +7,12 @@
 //   Headers: Authorization: Bearer <service_role_key>
 
 Deno.serve(async (req: Request) => {
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const expectedToken = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`;
+  if (!expectedToken || authHeader !== expectedToken) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const newRecord = body.record as Record<string, string>;
