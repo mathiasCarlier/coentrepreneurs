@@ -179,6 +179,12 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } });
   }
 
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const expectedToken = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`;
+  if (!expectedToken || authHeader !== expectedToken) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   try {
     const vapidSubject = Deno.env.get('VAPID_SUBJECT')!;
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')!;

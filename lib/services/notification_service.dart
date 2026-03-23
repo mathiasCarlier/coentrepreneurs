@@ -57,7 +57,7 @@ class NotificationService {
       final Map<String, dynamic> result = jsonDecode(resultStr);
 
       if (result.containsKey('error')) {
-        debugPrint('[Push] Abonnement échoué : ${result['error']}');
+        if (kDebugMode) debugPrint('[Push] Abonnement échoué : ${result['error']}');
         return;
       }
 
@@ -68,7 +68,7 @@ class NotificationService {
       final auth = keys?['auth'] as String?;
 
       if (endpoint == null || p256dh == null || auth == null) {
-        debugPrint('[Push] Données de souscription incomplètes.');
+        if (kDebugMode) debugPrint('[Push] Données de souscription incomplètes.');
         return;
       }
 
@@ -84,9 +84,9 @@ class NotificationService {
       );
 
       _initialized = true;
-      debugPrint('[Push] Souscription enregistrée.');
+      if (kDebugMode) debugPrint('[Push] Souscription enregistrée.');
     } catch (e) {
-      debugPrint('[Push] Erreur initialize : $e');
+      if (kDebugMode) debugPrint('[Push] Erreur initialize : $e');
     }
   }
 
@@ -110,9 +110,9 @@ class NotificationService {
       await _jsPushUnsubscribe().toDart;
 
       _initialized = false;
-      debugPrint('[Push] Souscription supprimée.');
+      if (kDebugMode) debugPrint('[Push] Souscription supprimée.');
     } catch (e) {
-      debugPrint('[Push] Erreur deleteSubscription : $e');
+      if (kDebugMode) debugPrint('[Push] Erreur deleteSubscription : $e');
     }
   }
 
