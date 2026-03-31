@@ -1108,7 +1108,7 @@ class _HomePageState extends State<HomePage> {
                   final eventDate = DateTime(event.date.year, event.date.month, event.date.day);
                   return eventDate.isAtSameMomentAs(todayStart) || eventDate.isAfter(todayStart);
                 })
-                .take(2) // Prendre seulement les 2 prochains
+                .take(5) // Prendre seulement les 2 prochains
                 .toList();
 
             // Événements terminés : FeedbackPrompt invisible déclenche le formulaire
