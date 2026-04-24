@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Affiche un dialogue pour inviter des personnes à un événement
 /// Retourne: List<Map<String, String>> avec email, prenom, nom
@@ -36,8 +37,34 @@ class _InvitationDialogState extends State<_InvitationDialog> {
   // ✅ Liste des invités à ajouter
   final List<Map<String, TextEditingController>> _invitees = [];
 
+  // ✅ État pour afficher les invitations existantes
+  List<Map<String, dynamic>> _existingInvitations = [];
+  bool _loadingExisting = true;
+
   // ✅ Validation
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingInvitations();
+  }
+
+  Future<void> _loadExistingInvitations() async {
+    try {
+      final data = await Supabase.instance.client
+          .from('invitations')
+          .select('invited_user_prenom, invited_user_nom, invited_user_email')
+          .eq('event_id', widget.eventId)
+          .eq('invited_by_user_id', widget.currentUserId);
+      setState(() {
+        _existingInvitations = List<Map<String, dynamic>>.from(data);
+        _loadingExisting = false;
+      });
+    } catch (_) {
+      setState(() => _loadingExisting = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -148,18 +175,49 @@ class _InvitationDialogState extends State<_InvitationDialog> {
 
             // 📋 Liste des invités
             if (_invitees.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: Text(
-                    'Aucun invité pour le moment',
-                    style: TextStyle(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              )
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _loadingExisting
+                  ? const Center(child: CircularProgressIndicator())
+                  : _existingInvitations.isEmpty
+                      ? Center(
+                          child: Text(
+                            'Aucun invité pour le moment',
+                            style: TextStyle(
+                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Déjà invité(s) :',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: isDark ? Colors.grey[300] : Colors.grey[700],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ..._existingInvitations.map((inv) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle_outline,
+                                      size: 16, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Vous avez invité ${inv['invited_user_prenom']} ${inv['invited_user_nom']}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            )),
+                          ],
+                        ),
+            )
             else
               Column(
                 children: List.generate(_invitees.length, (index) {

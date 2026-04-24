@@ -932,26 +932,11 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                       ),
 
                     // Liste des participants
-                    if (_event.registeredUserIds.isNotEmpty)
-                      _ParticipantsSection(
-                        userIds: _event.registeredUserIds,
-                        confirmedIds: _event.confirmedParticipants,
-                        isDark: isDark,
-                      ),
-
-                    if (_event.registeredUserIds.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Center(
-                          child: Text(
-                            'Aucun participant pour le moment',
-                            style: TextStyle(
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                      ),
+                    _ParticipantsSection(
+                      eventId: _event.id,
+                      isDark: isDark,
+                      isStarted: _event.isStarted,
+                    ),
 
                     const SizedBox(height: 24),
 
@@ -1297,228 +1282,318 @@ class _DetailSection extends StatelessWidget {
 }
 
 // Widget pour afficher la liste des participants
-class _ParticipantsSection extends StatefulWidget {
-  final List<String> userIds;
-  final List<String> confirmedIds;
+class _ParticipantsSection extends StatelessWidget {
+  final String eventId;
   final bool isDark;
+  final bool isStarted;
 
   const _ParticipantsSection({
-    required this.userIds,
-    required this.confirmedIds,
+    required this.eventId,
     required this.isDark,
+    required this.isStarted,
   });
 
-  @override
-  State<_ParticipantsSection> createState() => _ParticipantsSectionState();
-}
+  Future<List<Map<String, dynamic>>> _fetchParticipants() async {
+    final supabase = Supabase.instance.client;
 
-class _ParticipantsSectionState extends State<_ParticipantsSection> {
-  late Future<List<user_model.User>> _participantsFuture;
+    // Récupère toutes les registrations (registered + confirmed + declined) pour l'event
+    final registrations = await supabase
+        .from('registrations')
+        .select('user_id, status')
+        .eq('event_id', eventId);
 
-  @override
-  void initState() {
-    super.initState();
-    _participantsFuture = _fetchParticipants();
-  }
+    if (registrations.isEmpty) return [];
 
-  Future<List<user_model.User>> _fetchParticipants() async {
-    try {
-      final userIds = widget.userIds;
-      if (userIds.isEmpty) return [];
+    // Récupère les infos utilisateurs en une seule requête
+    final userIds = (registrations as List)
+        .map((r) => r['user_id'] as String)
+        .toList();
 
-      final supabase = Supabase.instance.client;
-      final users = <user_model.User>[];
+    if (userIds.isEmpty) return [];
 
-      for (final userId in userIds) {
-        try {
-          final response = await supabase
-              .from('users')
-              .select()
-              .eq('id', userId)
-              .maybeSingle();
-          if (response != null) {
-            users.add(user_model.User(
-              uid: userId,
-              email: response['email'] ?? '',
-              nom: response['nom'] ?? 'Inconnu',
-              prenom: response['prenom'] ?? '',
-              role: _stringToUserRole(response['role'] ?? ''),
-              phone: response['telephone'],
-            ));
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('Erreur lors de la récupération de l\'utilisateur $userId: $e');
-        }
-      }
+    final users = await supabase
+        .from('users')
+        .select('id, nom, prenom, email')
+        .inFilter('id', userIds);
 
-      return users;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Erreur lors de la récupération des participants: $e');
-      return [];
-    }
-  }
+    // Fusionne registrations + users
+    final usersMap = {
+      for (final u in users as List) u['id'] as String: u
+    };
 
-  user_model.UserRole _stringToUserRole(String role) {
-    switch (role.toLowerCase()) {
-      case 'admin':
-        return user_model.UserRole.admin;
-      case 'invite':
-        return user_model.UserRole.invite;
-      default:
-        return user_model.UserRole.adherent;
-    }
+    return registrations.map((r) {
+      final user = usersMap[r['user_id']] ?? {};
+      return {
+        'user_id': r['user_id'],
+        'status': r['status'],
+        'nom': user['nom'] ?? 'Inconnu',
+        'prenom': user['prenom'] ?? '',
+        'email': user['email'] ?? '',
+      };
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Stream.fromFuture(_fetchParticipants()).asyncExpand(
+        (_) => Supabase.instance.client
+            .from('registrations')
+            .stream(primaryKey: ['id'])
+            .eq('event_id', eventId)
+            .map((_) => null)
+            .asyncMap((_) => _fetchParticipants()),
+      ),
+      builder: (context, snapshot) {
+        final participants = snapshot.data ?? [];
+        final registered = participants
+            .where((p) => p['status'] == 'registered' || p['status'] == 'confirmed')
+            .toList();
+        final declined =
+            participants.where((p) => p['status'] == 'declined').toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.list_outlined, size: 24, color: Colors.blue[600]),
-            const SizedBox(width: 16),
-            Text(
-              'Participants (${widget.userIds.length})',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: widget.isDark ? Colors.grey[200] : Colors.grey[900],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        FutureBuilder<List<user_model.User>>(
-          future: _participantsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Erreur lors du chargement des participants',
-                  style: TextStyle(color: Colors.red[600]),
-                ),
-              );
-            }
-
-            final participants = snapshot.data ?? [];
-
-            if (participants.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Aucun participant trouvé',
+            Row(
+              children: [
+                Icon(Icons.list_outlined, size: 24, color: Colors.blue[600]),
+                const SizedBox(width: 16),
+                Text(
+                  'Participants (${registered.length})',
                   style: TextStyle(
-                    color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.grey[200] : Colors.grey[900],
+                  ),
+                ),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (snapshot.hasError)
+              Text('Erreur: ${snapshot.error}',
+                  style: TextStyle(color: Colors.red[600]))
+            else if (participants.isEmpty &&
+                snapshot.connectionState != ConnectionState.waiting)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Aucun participant pour le moment',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
                     fontStyle: FontStyle.italic,
                   ),
                 ),
-              );
-            }
+              )
+            else ...[
+              // Inscrits
+              if (registered.isNotEmpty) ...[
+                _buildGroupLabel('Inscrits', registered.length, Colors.blue, isDark),
+                const SizedBox(height: 8),
+                ...registered.map((p) => _buildUserTile(context, p, isDark)),
+                const SizedBox(height: 16),
+              ],
+              // Déclinés
+              if (declined.isNotEmpty) ...[
+                _buildGroupLabel('Ont décliné', declined.length, Colors.red, isDark),
+                const SizedBox(height: 8),
+                ...declined.map((p) => _buildUserTile(context, p, isDark)),
+              ],
+            ]
+          ],
+        );
+      },
+    );
+  }
 
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: participants.length,
-              itemBuilder: (context, index) {
-                final user = participants[index];
-                final isConfirmed = widget.confirmedIds.contains(user.uid);
+  Future<void> _confirmPresence(BuildContext context, String userId) async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('registrations')
+          .update({'status': 'confirmed'})
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: widget.isDark ? Colors.grey[800] : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isConfirmed
-                            ? Colors.green[400]!
-                            : widget.isDark
-                                ? Colors.grey[700]!
-                                : Colors.grey[300]!,
-                        width: isConfirmed ? 2 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isConfirmed ? Colors.green[600] : Colors.blue[600],
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${user.prenom[0]}${user.nom[0]}'.toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${user.prenom} ${user.nom}',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                user.email,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: widget.isDark
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isConfirmed)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '✅ Confirmé',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green[700],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
+  Future<void> _cancelConfirmation(BuildContext context, String userId) async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('registrations')
+          .update({'status': 'registered'})
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Widget _buildGroupLabel(
+      String label, int count, Color color, bool isDark) {
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label ($count)',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildUserTile(
+      BuildContext context, Map<String, dynamic> p, bool isDark) {
+    final status = p['status'] as String;
+    final isConfirmed = status == 'confirmed';
+    final isDeclined = status == 'declined';
+    final userId = p['user_id'] as String;
+
+    final prenom = p['prenom'] as String;
+    final nom = p['nom'] as String;
+    final initials = '${prenom.isNotEmpty ? prenom[0] : '?'}'
+        '${nom.isNotEmpty ? nom[0] : '?'}'.toUpperCase();
+
+    final avatarColor = isConfirmed
+        ? Colors.green[600]!
+        : isDeclined
+            ? Colors.red[400]!
+            : Colors.blue[600]!;
+
+    final borderColor = isConfirmed
+        ? Colors.green[400]!
+        : isDeclined
+            ? Colors.red[300]!
+            : isDark
+                ? Colors.grey[700]!
+                : Colors.grey[300]!;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.grey[800] : Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor, width: isConfirmed ? 2 : 1),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: avatarColor,
+              child: Text(initials,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$prenom $nom',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(p['email'] as String,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Boutons uniquement si l'événement est démarré et pas décliné
+            if (isStarted && !isDeclined)
+              isConfirmed
+                  ? TextButton.icon(
+                      onPressed: () => _cancelConfirmation(context, userId),
+                      icon: const Icon(Icons.close, size: 14),
+                      label: const Text('Annuler', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red[400],
+                        backgroundColor: isDark
+                            ? Colors.red[900]?.withValues(alpha: 0.25)
+                            : Colors.red[50],
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.red[300]!),
+                        ),
+                      ),
+                    )
+                  : TextButton.icon(
+                      onPressed: () => _confirmPresence(context, userId),
+                      icon: const Icon(Icons.check, size: 14),
+                      label: const Text('Confirmer',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.green[600],
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+            if (!isStarted || isDeclined) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isConfirmed
+                      ? Colors.green[100]
+                      : isDeclined
+                          ? Colors.red[50]
+                          : Colors.blue[50],
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isDeclined ? '❌ Décliné' : '⏳ Inscrit',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isDeclined ? Colors.red[600] : Colors.blue[700],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

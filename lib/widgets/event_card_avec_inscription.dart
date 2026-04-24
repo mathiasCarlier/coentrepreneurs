@@ -802,7 +802,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    widget.event.isStarted ? 'À confirmer' : 'En attente',
+                    'En attente',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -828,33 +828,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
         const SizedBox(height: 16),
 
         // Boutons selon l'état de l'événement
-        if (widget.event.isStarted)
-          // Mode confirmation
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _confirmPresence,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check_circle),
-              label: Text(
-                _isLoading ? 'En cours...' : 'Je suis présent ✅',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange[600],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          )
-        else
+        if (!widget.event.isStarted)
           // Mode avant le début - bouton d'invitation
           SizedBox(
             width: double.infinity,
@@ -954,9 +928,9 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: widget.isDark ? Colors.green[900]?.withValues(alpha: 0.3) : Colors.green[50],
+                color: widget.isDark ? Colors.orange[900]?.withValues(alpha: 0.3) : Colors.orange[50],
                 border: Border.all(
-                  color: Colors.green[400]!,
+                  color: Colors.orange[400]!,
                   width: 1.5,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -964,14 +938,14 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.verified, size: 16, color: Colors.green[400]),
+                  Icon(Icons.verified, size: 16, color: Colors.orange[400]),
                   const SizedBox(width: 6),
                   Text(
                     'Présent',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.green[300],
+                      color: Colors.orange[300],
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -1023,21 +997,19 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: widget.isDark
-                  ? Colors.amber[900]?.withValues(alpha: 0.2)
-                  : Colors.amber[50],
-              border: Border.all(color: Colors.amber[400]!),
+              color: widget.isDark ? Colors.orange[900]?.withValues(alpha: 0.3) : Colors.orange[50],
+              border: Border.all(color: Colors.orange[400]!),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                Icon(Icons.restaurant, size: 18, color: Colors.amber[400]),
+                Icon(Icons.restaurant, size: 18, color: Colors.orange[400]),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Repas réservé',
                     style: TextStyle(
-                      color: Colors.amber[widget.isDark ? 300 : 800],
+                      color: Colors.orange[300],
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
