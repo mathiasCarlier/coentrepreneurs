@@ -16,11 +16,19 @@ class AuthService {
   /// Stream qui émet les changements d'état d'authentification.
   /// Chaque événement Supabase Auth est enrichi avec les données de la table users.
   Stream<user_model.User?> get authStateChanges {
-    return _supabase.auth.onAuthStateChange.asyncMap((event) async {
-      final session = event.session;
-      if (session == null) return null;
-      return await _buildUser(session.user);
-    });
+  return _supabase.auth.onAuthStateChange.asyncMap((event) async {
+    // ✅ Ne pas traiter la session recovery comme une connexion normale
+    if (event.event == AuthChangeEvent.passwordRecovery) return null;
+    
+    final session = event.session;
+    if (session == null) return null;
+    return await _buildUser(session.user);
+  });
+}
+
+  /// Stream brut des événements auth (pour détecter passwordRecovery).
+  Stream<AuthChangeEvent> get authEventChanges {
+    return _supabase.auth.onAuthStateChange.map((event) => event.event);
   }
 
   /// Récupère l'utilisateur actuel (asynchrone).

@@ -19,6 +19,7 @@ import 'package:coentrepreneurs/router_utils.dart';
 import 'package:coentrepreneurs/pages/login_page.dart';
 import 'package:coentrepreneurs/pages/signup_page.dart';
 import 'package:coentrepreneurs/pages/home_page.dart';
+import 'package:coentrepreneurs/pages/reset_password_page.dart';
 
 Future<void> main() async {
   await SentryFlutter.init(
@@ -76,6 +77,13 @@ class _AppState extends State<App> {
     super.initState();
     _authService = AuthService();
     _router = _createRouter(_authService);
+
+    // Écoute des événements auth
+    _authService.authEventChanges.listen((event) {
+      if (event == AuthChangeEvent.passwordRecovery) {
+        _router.go('/reset-password');
+      }
+    });
   }
 
   // NOTE: l'instance `AuthService` est créée ici et fournie via `Provider`.
@@ -216,9 +224,7 @@ GoRouter _createRouter(AuthService authService) {
     initialLocation: '/home',
     refreshListenable: GoRouterRefreshStream(authService.authStateChanges),
     redirect: (context, state) {
-      // Utilise la fonction testable computeRedirect
-      // Utiliser state.uri.path pour récupérer le chemin sans query/fragment
-      return computeRedirect(authService, state.uri.path);
+        return computeRedirect(authService, state.uri.path);
     },
     routes: [
       GoRoute(
@@ -235,6 +241,11 @@ GoRouter _createRouter(AuthService authService) {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomePage(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        name: 'reset-password',
+        builder: (context, state) => const ResetPasswordPage(),
       ),
     ],
   );

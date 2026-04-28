@@ -31,4 +31,10 @@ void main() {
     final redirect = computeRedirect(auth, '/home');
     expect(redirect, null);
   });
+
+  test('passwordRecovery -> redirige vers /reset-password', () {
+    final auth = FakeAuth(true);
+    final redirect = computeRedirect(auth, '/home', true);
+    expect(redirect, '/reset-password');
+  });
 }
