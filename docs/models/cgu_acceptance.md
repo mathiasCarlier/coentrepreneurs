@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `cgu_acceptance.dart`
 
 **But :** Modèle de données représentant l'acceptation des CGU par un utilisateur.

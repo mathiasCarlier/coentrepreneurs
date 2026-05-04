@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `event.dart`
 
 **But :** Modèle central représentant une rencontre de l'association. Gère le cycle

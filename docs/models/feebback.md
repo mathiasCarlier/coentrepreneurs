@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `feedback.dart`
 
 **But :** Modèle représentant le retour d'expérience d'un participant après une

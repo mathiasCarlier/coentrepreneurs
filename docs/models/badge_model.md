@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `badge.dart`
 
 **But :** Définition des types de badges de gamification et de leurs métadonnées.

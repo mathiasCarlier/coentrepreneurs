@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `user.dart`
 
 **But :** Modèle applicatif central représentant un utilisateur de l'application,

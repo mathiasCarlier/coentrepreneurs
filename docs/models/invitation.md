@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `invitation.dart`
 
 **But :** Modèle représentant une invitation envoyée par un adhérent à un tiers
