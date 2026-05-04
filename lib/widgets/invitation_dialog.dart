@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Affiche un dialogue pour inviter des personnes à un événement
-/// Retourne: List<Map<String, String>> avec email, prenom, nom
+/// Retourne : `List<Map<String, String>>` avec email, prenom, nom
 Future<List<Map<String, String>>?> showInvitationDialog(
   BuildContext context, {
   required String eventId,

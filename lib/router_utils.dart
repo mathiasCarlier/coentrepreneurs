@@ -1,5 +1,3 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 // Détermine la redirection en fonction de l'état d'authentification.
 // - Si l'utilisateur n'est pas connecté et tente d'accéder à une route
 //   protégée, renvoyer la route de login.

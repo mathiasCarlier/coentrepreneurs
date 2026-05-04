@@ -1326,9 +1326,9 @@ class _MessageFormDialogState extends State<_MessageFormDialog> {
         'read': false,
         'read_by': [widget.user.uid],
         if (link.isNotEmpty) 'link_url': link,
-        if (imageUrl != null) 'image_url': imageUrl,
-        if (fileUrl != null) 'file_url': fileUrl,
-        if (fileName != null) 'file_name': fileName,
+        ...?(imageUrl != null ? {'image_url': imageUrl} : null),
+        ...?(fileUrl != null ? {'file_url': fileUrl} : null),
+        ...?(fileName != null ? {'file_name': fileName} : null),
       });
 
       if (mounted) {

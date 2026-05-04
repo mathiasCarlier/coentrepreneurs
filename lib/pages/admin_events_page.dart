@@ -1,7 +1,6 @@
 // pages/admin_events_page.dart - VERSION AVEC FEEDBACK AUTOMATIQUE
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,7 +8,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
-import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/services/storage_service.dart';
 import 'package:coentrepreneurs/widgets/event_guests_section.dart';

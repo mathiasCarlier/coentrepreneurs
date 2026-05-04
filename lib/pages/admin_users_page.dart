@@ -78,28 +78,26 @@ class _AdminUsersPageState extends State<AdminUsersPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Radio<String>(
-                  value: 'adherent',
-                  groupValue: selectedRole,
-                  onChanged: (v) =>
-                      setDialogState(() => selectedRole = v!),
+                leading: Icon(
+                  selectedRole == 'adherent'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: selectedRole == 'adherent' ? Colors.blue : null,
                 ),
                 title: const Text('Adhérent'),
                 subtitle: const Text('Accès complet à l\'application'),
-                onTap: () =>
-                    setDialogState(() => selectedRole = 'adherent'),
+                onTap: () => setDialogState(() => selectedRole = 'adherent'),
               ),
               ListTile(
-                leading: Radio<String>(
-                  value: 'invite',
-                  groupValue: selectedRole,
-                  onChanged: (v) =>
-                      setDialogState(() => selectedRole = v!),
+                leading: Icon(
+                  selectedRole == 'invite'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: selectedRole == 'invite' ? Colors.blue : null,
                 ),
                 title: const Text('Invité'),
                 subtitle: const Text('Accès limité'),
-                onTap: () =>
-                    setDialogState(() => selectedRole = 'invite'),
+                onTap: () => setDialogState(() => selectedRole = 'invite'),
               ),
             ],
           ),

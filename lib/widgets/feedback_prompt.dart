@@ -145,6 +145,8 @@ class _FeedbackPromptState extends State<FeedbackPrompt> {
           userEmail: currentUser.email,
           userPrenom: currentUser.prenom,
           userNom: currentUser.nom,
+          eventTheme: widget.event.theme,          // 👈
+          eventDate: widget.event.formattedDate,   // 👈 utilise le getter déjà existant
           onSubmitted: () {
             if (kDebugMode) debugPrint('✅ Feedback soumis');
             if (mounted) {

@@ -11,6 +11,8 @@ class FeedbackDialog extends StatefulWidget {
   final String userEmail;
   final String userPrenom;
   final String userNom;
+  final String eventTheme;      // 👈 ajout
+  final String eventDate;       // 👈 ajout
   final VoidCallback onSubmitted;
 
   const FeedbackDialog({
@@ -20,6 +22,8 @@ class FeedbackDialog extends StatefulWidget {
     required this.userEmail,
     required this.userPrenom,
     required this.userNom,
+    required this.eventTheme,   // 👈
+    required this.eventDate,    // 👈
     required this.onSubmitted,
   });
 
@@ -167,7 +171,47 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                  const SizedBox(height: 8),
+                  // Nom et date de la rencontre
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[850] : Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? Colors.grey[700]! : Colors.blue[100]!,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.eventTheme,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              widget.eventDate,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
                   // Question 1: Qu'est-ce qui vous a plu
                   Column(

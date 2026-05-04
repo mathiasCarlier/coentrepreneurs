@@ -5,7 +5,6 @@ import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/services/registration_service.dart';
 import 'package:coentrepreneurs/services/location_service.dart';
-import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/widgets/invitation_dialog.dart';
 import 'package:coentrepreneurs/services/invitation_service.dart';
 import 'package:coentrepreneurs/widgets/collation_dialog.dart';
@@ -44,7 +43,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
   late AnimationController _controller;
   late Animation<double> _elevation;
   final RegistrationService _registrationService = RegistrationService();
-  final EventService _eventService = EventService();
   final InvitationService _invitationService = InvitationService();
   bool _isLoading = false;
 
@@ -287,39 +285,6 @@ class _EventCardState extends State<EventCard> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _confirmPresence() async {
-    if (widget.currentUser == null || !widget.event.canUserConfirm(widget.currentUser!.uid)) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      await _eventService.confirmUserPresence(
-        widget.event.id,
-        widget.currentUser!.uid,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Votre présence est confirmée!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
 
   Future<void> _openLocation() async {
     try {
@@ -802,7 +767,7 @@ Future<void> _sendInvitations(List<Map<String, String>> invitations) async {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'En attente',
+                    'Je suis inscrit',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
