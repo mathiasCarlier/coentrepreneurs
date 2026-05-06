@@ -121,4 +121,3 @@ sauf les listes.
 - **`role` immuable** : le rôle ne peut pas être modifié via `copyWith` ni
   directement — un changement de rôle nécessite de recréer un objet `User`
   complet, ce qui est cohérent avec la sensibilité de ce champ.
-```

@@ -83,4 +83,3 @@ par utilisateur et par version de CGU.
 - Le texte des CGU (`cguContent`) est embarqué dans le code source — pas de
   chargement dynamique depuis Supabase. Une mise à jour du texte sans changement
   de version ne serait pas détectée par le système.
-```

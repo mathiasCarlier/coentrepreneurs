@@ -94,4 +94,3 @@ pas de le forcer à `null` explicitement depuis une valeur non nulle.
 - Le statut est stocké en base comme chaîne (`status.name`) — `'pending'`,
   `'accepted'` ou `'declined'`. Toute renommée de l'enum sans migration de données
   casserait la désérialisation.
-```

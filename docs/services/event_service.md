@@ -158,4 +158,3 @@ Réservé aux opérations de maintenance.
 Toutes les méthodes encapsulent les exceptions dans des `Exception` avec
 messages français descriptifs. Les erreurs réseau sont propagées à l'appelant
 — c'est l'UI qui décide de les afficher via SnackBar ou autre.
-```

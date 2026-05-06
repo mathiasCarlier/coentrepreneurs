@@ -124,4 +124,3 @@ enregistré deux fois, même pour des utilisateurs différents.
   peut être appelé même si l'abonnement n'a jamais été initialisé.
 - Les erreurs des deux méthodes web sont absorbées silencieusement (log debug
   uniquement) pour ne pas bloquer la connexion ou la déconnexion.
-```

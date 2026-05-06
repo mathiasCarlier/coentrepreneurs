@@ -1,4 +1,3 @@
-```markdown
 # Résumé de `messages_page.dart`
 
 **But :** Interface d'administration pour consulter et modérer les messages de contact

@@ -123,4 +123,3 @@ une réévaluation des routes à chaque changement d'état d'authentification.
 | Table | Opérations | Champs concernés |
 |---|---|---|
 | `users` | SELECT (`_getUserData`), UPSERT (`signup`) | `id`, `email`, `nom`, `prenom`, `phone`, `role`, `photo_url`, `company_name`, `skills`, `professional_address`, `website`, `share_pro_info`, `blocked`, `approval_status` |
-```

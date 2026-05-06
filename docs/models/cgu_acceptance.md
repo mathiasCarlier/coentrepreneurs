@@ -52,4 +52,3 @@ direct) pour contourner les limitations de PostgREST/RLS avec cette contrainte :
   des conditions d'utilisation.
 - Le modèle ne stocke pas d'historique des acceptations — seule la ligne
   `(user_id, cgu_version)` la plus récente est conservée par version.
-```

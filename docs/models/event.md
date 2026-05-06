@@ -156,4 +156,3 @@ peut pas distinguer "ne pas modifier" de "mettre à null".
 |---|---|
 | `events` | Données principales de l'événement |
 | `registrations` | Join optionnel via `fromMap` — colonnes lues : `user_id`, `status`, `has_collation` |
-```

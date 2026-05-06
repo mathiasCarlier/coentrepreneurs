@@ -70,4 +70,3 @@ nullable ne nécessite d'être mis à `null` explicitement).
 - La dénormalisation des infos utilisateur (`userEmail`, `userPrenom`, `userNom`)
   implique que les feedbacks existants ne reflètent pas les changements de profil
   ultérieurs — comportement voulu pour l'audit.
-```

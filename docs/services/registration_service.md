@@ -137,4 +137,3 @@ comportement de `AuthService` qui retourne `invite` par défaut).
 est le service dédié aux inscriptions côté **utilisateur**, tandis que
 `EventService` centralise les opérations côté **admin** avec des validations
 métier supplémentaires (vérification capacité, statut événement).
-```

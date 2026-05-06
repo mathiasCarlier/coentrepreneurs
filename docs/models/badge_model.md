@@ -63,4 +63,3 @@ Permet d'accéder aux métadonnées d'un badge par son type : `kBadges[BadgeType
   source et un nouveau déploiement.
 - Le champ `type` dans `BadgeInfo` est redondant avec la clé de la `Map`,
   mais permet d'accéder au type depuis une instance `BadgeInfo` isolée.
-```
