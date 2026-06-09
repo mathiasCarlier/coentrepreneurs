@@ -10,8 +10,6 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:coentrepreneurs/models/event.dart';
 import 'package:coentrepreneurs/services/event_service.dart';
 import 'package:coentrepreneurs/services/storage_service.dart';
-import 'package:coentrepreneurs/widgets/event_guests_section.dart';
-
 class AdminEventsPage extends StatefulWidget {
   const AdminEventsPage({super.key});
 
@@ -917,18 +915,6 @@ class _EventDetailsSheetState extends State<_EventDetailsSheet> {
                       ),
 
                     // SECTION INVITÉS - Affichée quand l'événement est en cours
-                    if (_event.isStarted)
-                      Column(
-                        children: [
-                          EventGuestsSection(
-                            eventId: _event.id,
-                            isDark: isDark,
-                            registeredUserIds: _event.registeredUserIds,
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-
                     // Liste des participants
                     _ParticipantsSection(
                       eventId: _event.id,

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:coentrepreneurs/models/user.dart' as user_model;
+import 'package:coentrepreneurs/supabase_config.dart';
 
 // Service d'authentification — Supabase Auth + table public.users.
 // Interface publique :
@@ -45,7 +46,7 @@ class AuthService {
   Future<user_model.User?> login(String email, String password) async {
     try {
       final response = await _supabase.auth.signInWithPassword(
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password: password,
       );
 
@@ -84,8 +85,10 @@ class AuthService {
         throw 'Le mot de passe doit contenir au moins 6 caractères.';
       }
 
+      final normalizedEmail = email.trim().toLowerCase();
+
       final response = await _supabase.auth.signUp(
-        email: email.trim(),
+        email: normalizedEmail,
         password: password,
       );
 
@@ -96,7 +99,7 @@ class AuthService {
       // Upsert : le trigger crée déjà une ligne minimale, on complète
       await _supabase.from('users').upsert({
         'id': response.user!.id,
-        'email': email.trim(),
+        'email': normalizedEmail,
         'nom': nom.trim(),
         'prenom': prenom.trim(),
         'phone': phone.trim(),
@@ -121,8 +124,16 @@ class AuthService {
 
   /// Envoie un email de réinitialisation du mot de passe.
   Future<void> sendPasswordResetEmail(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
     try {
-      await _supabase.auth.resetPasswordForEmail(email.trim());
+      if (normalizedEmail.isEmpty) {
+        throw 'Email invalide.';
+      }
+
+      await _supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        redirectTo: '${SupabaseConfig.appUrl}/#/reset-password',
+      );
     } on AuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
