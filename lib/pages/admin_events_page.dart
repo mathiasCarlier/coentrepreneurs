@@ -64,34 +64,34 @@ class _AdminEventsPageState extends State<AdminEventsPage> {
             );
           }
 
-          final withSummary = events.where((e) => e.hasSummary).toList();
-          final withoutSummary = events.where((e) => !e.hasSummary).toList();
+          final notFinishedEvents = events.where((e) => !e.isFinished).toList();
+          final finishedEvents = events.where((e) => e.isFinished).toList();
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              if (withoutSummary.isNotEmpty) ...[
+              if (notFinishedEvents.isNotEmpty) ...[
                 _SectionHeader(
-                  label: 'Sans compte-rendu',
-                  count: withoutSummary.length,
+                  label: 'Non terminés',
+                  count: notFinishedEvents.length,
                   color: Colors.orange,
                 ),
                 const SizedBox(height: 8),
-                ...withoutSummary.map((event) => _EventCard(
+                ...notFinishedEvents.map((event) => _EventCard(
                   event: event,
                   isDark: isDark,
                   onTap: () => _showEventDetails(context, event),
                 )),
               ],
-              if (withSummary.isNotEmpty) ...[
-                if (withoutSummary.isNotEmpty) const SizedBox(height: 16),
+              if (finishedEvents.isNotEmpty) ...[
+                if (notFinishedEvents.isNotEmpty) const SizedBox(height: 16),
                 _SectionHeader(
-                  label: 'Avec compte-rendu',
-                  count: withSummary.length,
+                  label: 'Terminés',
+                  count: finishedEvents.length,
                   color: Colors.green,
                 ),
                 const SizedBox(height: 8),
-                ...withSummary.map((event) => _EventCard(
+                ...finishedEvents.map((event) => _EventCard(
                   event: event,
                   isDark: isDark,
                   onTap: () => _showEventDetails(context, event),

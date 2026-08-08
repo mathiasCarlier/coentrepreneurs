@@ -48,6 +48,8 @@ dependencies:
   image_picker: ^1.0.0
   file_picker: ^8.0.0
 
+  flutter_dotenv: ^5.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -59,3 +61,4 @@ flutter:
   assets:
     - assets/images/charte_ethique.jpg
     - assets/audio/charte_audio.mp3
+    - .env
