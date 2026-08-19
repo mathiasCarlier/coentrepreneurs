@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -40,6 +41,11 @@ Future<void> main() async {
       // On désactive le fetch runtime pour éviter le texte invisible.
       if (kIsWeb) {
         GoogleFonts.config.allowRuntimeFetching = false;
+        // URLs sans '#' : nécessaire pour que le paramètre PKCE `code` du
+        // lien de réinitialisation de mot de passe reste une vraie query
+        // string (un '#' plus tôt dans l'URL le transformerait en fragment
+        // illisible par le SDK Supabase).
+        usePathUrlStrategy();
       }
       await initializeDateFormatting('fr_FR');
       if (kDebugMode) debugPrint('INIT SUPABASE...');

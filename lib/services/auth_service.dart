@@ -132,7 +132,7 @@ class AuthService {
 
       await _supabase.auth.resetPasswordForEmail(
         normalizedEmail,
-        redirectTo: '${SupabaseConfig.appUrl}/#/reset-password',
+        redirectTo: '${SupabaseConfig.appUrl}/reset-password',
       );
     } on AuthException catch (e) {
       throw _handleAuthException(e);
