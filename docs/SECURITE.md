@@ -4,8 +4,8 @@ Audit du 18/08/2026. Les correctifs de code sont déjà dans le dépôt
 (migration 011, `nginx/security-headers.conf`, Edge Functions). Ce document
 couvre la partie serveur, qui demande un accès SSH.
 
-Ordre recommandé : **§1 → §2 → §3 → §4**. Le §1 est le plus urgent et le
-plus rapide.
+Ordre recommandé : **§0 → §1 → §2 → §3 → §4**. Le §0 est à faire
+immédiatement : la faille est activement exploitable en l'état.
 
 ---
 
@@ -19,11 +19,69 @@ Vérifié depuis l'extérieur le 18/08/2026 :
 | `46.225.133.77:8000` | **ouvert**, sert l'API Supabase complète en HTTP clair |
 | `46.225.133.77:8080` | fermé/filtré |
 | `46.225.133.77:9001` (MinIO) | fermé/filtré |
+| `https://app.coentrepreneurs.fr/assets/.env` | **HTTP 200 — sert le vrai `.env` en clair** |
 | En-têtes HTTPS de `app.coentrepreneurs.fr` | aucun (ni HSTS, ni CSP, ni X-Frame-Options) |
 | Lecture anonyme des 7 tables via clé anon | bloquée ✅ |
 
 Mots de passe dans `/home/math/app/.env` : `DB_PASSWORD=mdpmath` et
 `MINIO_PASSWORD=mdpmath` — 7 caractères, sans chiffre ni symbole.
+
+---
+
+## §0 — Fuite du fichier `.env` (à traiter en premier)
+
+`.env` était déclaré comme **asset Flutter** dans `pubspec.yaml`. Flutter
+empaquette les assets dans le build web, et `deploy.sh` les rsync tels quels
+vers le VPS. Résultat, vérifié le 18/08/2026 :
+
+```
+$ curl https://app.coentrepreneurs.fr/assets/.env
+DB_PASSWORD=mdpmath
+MINIO_USER=admin
+MINIO_PASSWORD=mdpmath
+```
+
+Le fichier est identique au `.env` local, servi en HTTP 200 à qui le demande,
+sans authentification.
+
+### Pourquoi c'est urgent
+
+La chaîne d'exploitation est complète et ne demande aucune compétence :
+
+1. récupérer `DB_PASSWORD` sur l'URL publique ci-dessus ;
+2. se connecter à `46.225.133.77:5432`, ouvert sur Internet (§1) ;
+3. accès total à la base — lecture, modification, suppression.
+
+Considérer ces identifiants comme **déjà compromis**. Le correctif de code
+(commit « Retire .env des assets Flutter ») empêche la récidive mais ne
+rétablit pas le secret des mots de passe déjà publiés : le §2 est obligatoire.
+
+### Étape 0a — retirer le fichier de la production
+
+Le correctif est déjà commité. Il faut redéployer pour qu'il prenne effet.
+`deploy.sh` utilise `rsync --delete`, donc l'asset périmé sera supprimé.
+
+```bash
+flutter clean          # indispensable : sinon l'ancien asset reste en cache de build
+flutter pub get
+./deploy.sh
+```
+
+### Étape 0b — vérifier
+
+```bash
+curl -i https://app.coentrepreneurs.fr/assets/.env | head -1
+```
+
+Attendu : une réponse HTML (le fallback SPA), plus le contenu du `.env`.
+Comparer la taille : 60 octets = c'est encore le fichier, quelques Ko = c'est
+`index.html`.
+
+### Étape 0c — enchaîner immédiatement sur le §2
+
+Les mots de passe publiés doivent être renouvelés, que le fichier soit retiré
+ou non. Rien ne garantit qu'ils n'ont pas déjà été moissonnés — les scanners
+automatiques testent `/.env` et `/assets/.env` en permanence.
 
 ---
 
