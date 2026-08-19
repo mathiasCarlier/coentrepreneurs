@@ -2,6 +2,8 @@
 
 Plateforme collaborative web destinée aux co-entrepreneurs : gestion des adhérents, événements, messages et notifications push.
 
+Production : **https://app.coentrepreneurs.fr**
+
 ---
 
 ## Fonctionnalités
@@ -9,7 +11,7 @@ Plateforme collaborative web destinée aux co-entrepreneurs : gestion des adhér
 ### Authentification & gestion des accès
 
 - Inscription avec validation des CGU (conditions générales d'utilisation versionnées)
-- Connexion email / mot de passe
+- Connexion email / mot de passe, réinitialisation de mot de passe (flux PKCE)
 - Flux d'approbation : nouvel utilisateur → statut `pending` → approbation ou rejet par un admin
 - Détection de blocage en temps réel (Supabase Realtime)
 - Rôles : `admin`, `adherent`, `invite`
@@ -20,6 +22,7 @@ Plateforme collaborative web destinée aux co-entrepreneurs : gestion des adhér
 - Écran d'attente pendant la validation du compte
 - Formulaire de contact catégorisé (idée, aide, problème, bon plan) avec pièces jointes (photo, fichier, lien)
 - Profil et informations professionnelles modifiables (nom, entreprise, compétences, site web, téléphone, adresse, avatar)
+- Passions, date d'adhésion, parrainage
 - Changement de mot de passe
 
 ### Annuaire des adhérents
@@ -48,6 +51,8 @@ Plateforme collaborative web destinée aux co-entrepreneurs : gestion des adhér
   - L'admin reçoit une notification quand un utilisateur s'inscrit
   - L'utilisateur reçoit une notification quand son compte est approuvé ou rejeté
   - Tous les adhérents reçoivent une notification lors de la création d'un événement
+  - Un email part vers les admins à chaque nouveau message (via Resend)
+  - Digest quotidien des notifications non lues
 
 ---
 
@@ -56,13 +61,32 @@ Plateforme collaborative web destinée aux co-entrepreneurs : gestion des adhér
 | Couche | Technologie |
 | --- | --- |
 | Frontend | Flutter (web uniquement) |
-| Backend | Supabase (PostgreSQL + Auth + Storage + Realtime) |
+| Backend | Supabase **auto-hébergé** (PostgreSQL + Auth + Storage + Realtime + Edge Functions) |
 | Navigation | GoRouter v17 |
 | State management | Provider (AuthService uniquement) |
-| Push notifications | Web Push API (VAPID) + Supabase Edge Functions (Deno) |
-| UI | Material 3, Google Fonts Inter |
-| Audio | just_audio |
-| Fichiers | image_picker, file_picker |
+| Push notifications | Web Push API (VAPID) + Edge Functions Deno |
+| Emails transactionnels | Resend |
+| Monitoring | Sentry (`sentry_flutter`, inactif en debug) |
+| UI | Material 3, Google Fonts Inter, `table_calendar`, `badges`, `flutter_markdown_plus` |
+| Audio | `just_audio` |
+| Fichiers | `image_picker`, `file_picker` |
+
+---
+
+## Infrastructure
+
+Supabase n'est **pas** hébergé chez Supabase Cloud : la pile tourne en Docker sur un VPS.
+
+| Élément | Valeur |
+| --- | --- |
+| VPS | `46.225.133.77` |
+| Domaine | `https://app.coentrepreneurs.fr` (Let's Encrypt) |
+| Reverse proxy | conteneur `app-nginx-1` (⚠️ pas le nginx système) |
+| API Supabase | `https://app.coentrepreneurs.fr/supabase-api` |
+| Pile Supabase | `/home/math/app/supabase-master/docker/` |
+| Edge Functions | `/home/math/app/supabase-master/docker/volumes/functions/` |
+| Conteneur DB | `supabase-db` |
+| Backup DB | cron quotidien 2 h, `/opt/backup-db.sh`, rétention 7 jours dans `/backups/` |
 
 ---
 
@@ -70,7 +94,9 @@ Plateforme collaborative web destinée aux co-entrepreneurs : gestion des adhér
 
 ```text
 lib/
-├── main.dart               # Point d'entrée, GoRouter, thèmes
+├── main.dart               # Point d'entrée, GoRouter, thèmes, init Sentry
+├── router_utils.dart       # computeRedirect() — logique de redirection (testée)
+├── supabase_config.dart    # URL + clé anonyme Supabase
 ├── models/                 # User, Event, Registration, Invitation, Feedback, CguAcceptance
 ├── services/               # AuthService, EventService, CguService, NotificationService...
 ├── pages/                  # Écrans principaux
@@ -82,9 +108,15 @@ web/
 └── push_utils.js           # Bridge JS → Flutter pour s'abonner/désabonner au push
 
 supabase/
-├── migrations/             # Schéma SQL (tables, RLS)
-└── functions/              # Edge Functions Deno (send-push, webhooks)
+├── migrations/             # Schéma SQL (tables, RLS, triggers)
+└── functions/              # Edge Functions Deno
+
+nginx/
+└── security-headers.conf   # En-têtes de sécurité à inclure dans le vhost
 ```
+
+Les services sont instanciés directement dans les pages (pas d'injection de
+dépendances) ; seul `AuthService` passe par Provider.
 
 ### Tables Supabase
 
@@ -99,6 +131,22 @@ supabase/
 | `messages` | Messages de contact des adhérents |
 | `push_subscriptions` | Souscriptions push navigateur (VAPID) |
 
+### Buckets Storage
+
+| Bucket | Accès | Usage |
+| --- | --- | --- |
+| `events` | public | Images et fichiers des événements |
+| `messages_attachments` | privé (URLs signées) | Pièces jointes des messages |
+
+### Migrations
+
+Fichiers dans `supabase/migrations/`, à rejouer dans l'ordre numérique.
+
+> ⚠️ **Le schéma déployé a dérivé de ces fichiers** : des policies ont été
+> modifiées directement dans Studio sans être reportées ici. Lire
+> [docs/SECURITE.md](docs/SECURITE.md) §4 avant de s'appuyer dessus pour une
+> restauration. Deux fichiers portent par ailleurs le numéro `007`.
+
 ---
 
 ## Lancer le projet
@@ -111,19 +159,21 @@ flutter test             # Tests unitaires
 flutter analyze          # Analyse statique
 ```
 
-### Variables de configuration
+### Configuration
 
-Le fichier `lib/config/supabase_config.dart` contient l'URL et la clé anonyme Supabase.
+| Quoi | Où |
+| --- | --- |
+| URL + clé anonyme Supabase | `lib/supabase_config.dart` |
+| Clé VAPID **publique** (client) | `lib/services/notification_service_web.dart` |
+| DSN Sentry | passé via `--dart-define`, voir `lib/main.dart` |
 
-Pour les notifications push, définir les secrets Supabase :
+La clé anonyme et la clé VAPID publique sont publiques par conception : elles
+sont embarquées dans le bundle web. La sécurité repose sur les policies RLS,
+jamais sur le secret de ces clés.
 
-```bash
-supabase secrets set VAPID_PUBLIC_KEY="<clé-publique>"
-supabase secrets set VAPID_PRIVATE_KEY="<clé-privée>"
-supabase secrets set VAPID_SUBJECT="mailto:admin@coentrepreneurs.com"
-```
-
-Et remplacer `_vapidPublicKey` dans `lib/services/notification_service.dart`.
+Les secrets côté serveur (`VAPID_PRIVATE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+`RESEND_API_KEY`) vivent dans le `.env` de la pile Docker sur le VPS et ne
+doivent jamais apparaître dans le dépôt ni dans le code client.
 
 ---
 
@@ -137,21 +187,65 @@ approval_status: approved → accès complet
 approval_status: rejected → accès refusé
 ```
 
+Les colonnes `role`, `blocked`, `approval_status` et `approved_at` sont
+protégées en base par un trigger (migration 011) : seuls un admin ou le
+`service_role` peuvent les modifier.
+
 ---
 
-## Déploiement des Edge Functions
+## Déploiement
+
+Tout est manuel (pas de CI/CD à ce jour).
+
+### Application web
 
 ```bash
-supabase functions deploy send-push
-supabase functions deploy webhook-user-signup
-supabase functions deploy webhook-user-approved
-supabase functions deploy webhook-event-created
+./deploy.sh    # flutter build web --release + rsync vers math@46.225.133.77:~/app/web/
 ```
 
-Puis configurer 3 webhooks dans le dashboard Supabase (Database > Webhooks) :
+### Edge Functions
 
-| Webhook | Table | Événement | Fonction |
-| --- | --- | --- | --- |
-| push_new_signup | users | INSERT | webhook-user-signup |
-| push_user_status | users | UPDATE | webhook-user-approved |
-| push_new_event | events | INSERT | webhook-event-created |
+Supabase étant auto-hébergé, la CLI `supabase functions deploy` ne s'applique
+pas : les fonctions se copient dans le volume monté par le conteneur.
+
+```bash
+scp -r supabase/functions/<nom> \
+  math@46.225.133.77:/home/math/app/supabase-master/docker/volumes/functions/
+ssh math@46.225.133.77 'docker restart supabase-edge-functions'
+```
+
+| Fonction | Déclencheur | Rôle |
+| --- | --- | --- |
+| `send-push` | HTTP POST | Envoi des notifications push (par `user_ids` ou par rôle) |
+| `webhook-user-signup` | DB webhook INSERT `users` | Prévient les admins d'une nouvelle demande |
+| `webhook-user-approved` | DB webhook UPDATE `users` | Prévient l'utilisateur de l'approbation / du rejet |
+| `webhook-event-created` | DB webhook INSERT `events` | Prévient les adhérents d'un nouvel événement |
+| `webhook-new-message` | DB webhook INSERT `messages` | Envoie un email aux admins via Resend |
+| `daily-digest` | cron / HTTP POST | Digest quotidien des notifications non lues |
+
+Les six fonctions exigent l'en-tête `Authorization: Bearer <service_role_key>`
+et refusent toute requête si la clé n'est pas configurée (fail-closed).
+
+### Migrations
+
+```bash
+scp supabase/migrations/<fichier>.sql math@46.225.133.77:/tmp/
+ssh math@46.225.133.77
+sudo /opt/backup-db.sh    # toujours sauvegarder avant
+docker exec -i supabase-db psql -U postgres -d postgres < /tmp/<fichier>.sql
+```
+
+---
+
+## Sécurité
+
+Le modèle de sécurité repose sur les **policies RLS** de PostgreSQL : le client
+Flutter parle directement à PostgREST avec la clé anonyme, et c'est la base qui
+arbitre chaque lecture et chaque écriture. Toute nouvelle table doit donc avoir
+`ENABLE ROW LEVEL SECURITY` et des policies explicites, sans quoi elle est soit
+inaccessible, soit ouverte à tous.
+
+Audit complet, correctifs et runbook de durcissement VPS :
+**[docs/SECURITE.md](docs/SECURITE.md)**.
+
+Procédure de restauration : [docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md).

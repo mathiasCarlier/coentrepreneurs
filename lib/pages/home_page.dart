@@ -337,7 +337,7 @@ class _HomePageState extends State<HomePage> {
     if (currentUserData == null) return 0;
 
     final role = currentUserData['role'] as String? ?? '';
-    final isAdmin = role == 'admin' || role.contains('admin');
+    final isAdmin = user_model.isAdminRole(role);
 
     Set<String> readIds = {};
     Set<String> readMessageIds = {};

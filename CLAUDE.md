@@ -90,3 +90,13 @@ flutter analyze          # Run static analysis
 | `004_member_since_passions.sql` | member_since + passions columns on users |
 | `005_parrainage.sql` | parrain_id column on users (sponsorship) |
 | `006_push_subscriptions_update_policy.sql` | UPDATE policy on push_subscriptions (upsert fix) |
+| `007_indexes.sql` | Indexes on frequently filtered columns |
+| `007_messages_read_by.sql` | read_by column on messages (numbering collision with 007_indexes) |
+| `008_storage_policies.sql` | RLS policies on the `events` storage bucket |
+| `009_events_missing_columns.sql` | Missing columns on events |
+| `010_fix_invitations_rls.sql` | Restricts invitations_update to creator or admin |
+| `011_security_hardening.sql` | Trigger protecting privilege columns, SELECT policies restricted to `authenticated` |
+
+⚠️ The deployed schema has drifted from these files (policies edited directly
+in Studio). See [docs/SECURITE.md](docs/SECURITE.md) §4 before relying on them
+for a restore.

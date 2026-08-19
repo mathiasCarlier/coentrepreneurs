@@ -4,9 +4,27 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://app.coentrepreneurs.fr',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Vary': 'Origin',
 };
+
+// Comparaison à temps constant (voir send-push/index.ts).
+function safeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ea.length; i++) diff |= ea[i] ^ eb[i];
+  return diff === 0;
+}
+
+// Fail-closed : clé absente ⇒ aucune requête acceptée.
+function isAuthorized(req: Request): boolean {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!key) return false;
+  return safeEqual(req.headers.get('Authorization') ?? '', `Bearer ${key}`);
+}
 
 interface WebhookPayload {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -27,9 +45,7 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const expectedToken = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`;
-  if (!expectedToken || authHeader !== expectedToken) {
+  if (!isAuthorized(req)) {
     return new Response('Unauthorized', { status: 401, headers: corsHeaders });
   }
 

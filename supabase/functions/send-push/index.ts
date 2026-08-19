@@ -7,9 +7,34 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://app.coentrepreneurs.fr',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Vary': 'Origin',
 };
+
+// ── Authentification ───────────────────────────────────────────────────────
+
+// Comparaison à temps constant : une comparaison `!==` classique s'arrête
+// au premier octet différent, ce qui permet en théorie de reconstituer le
+// token octet par octet en mesurant le temps de réponse.
+function safeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ea.length; i++) diff |= ea[i] ^ eb[i];
+  return diff === 0;
+}
+
+// Fail-closed : si la variable d'environnement est absente, on refuse tout.
+// (L'ancien test `!expectedToken` ne se déclenchait jamais : `Bearer ` + ''
+// reste une chaîne non vide, donc une clé manquante laissait passer une
+// requête portant l'en-tête `Authorization: Bearer `.)
+function isAuthorized(req: Request): boolean {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!key) return false;
+  return safeEqual(req.headers.get('Authorization') ?? '', `Bearer ${key}`);
+}
 
 // ── Base64url ──────────────────────────────────────────────────────────────
 
@@ -199,9 +224,7 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const expectedToken = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`;
-  if (!expectedToken || authHeader !== expectedToken) {
+  if (!isAuthorized(req)) {
     return new Response('Unauthorized', { status: 401, headers: corsHeaders });
   }
 

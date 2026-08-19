@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:coentrepreneurs/models/user.dart' as user_model;
 import 'package:coentrepreneurs/widgets/fullscreen_image_viewer.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -143,7 +144,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (mounted) {
       setState(() {
         _currentUserId = uid;
-        _isAdmin = role == 'admin' || role.contains('admin');
+        _isAdmin = user_model.isAdminRole(role);
       });
     }
   }

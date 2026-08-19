@@ -6,10 +6,25 @@
 //   URL: https://<ref>.supabase.co/functions/v1/webhook-user-signup
 //   Headers: Authorization: Bearer <service_role_key>
 
+// Comparaison à temps constant (voir send-push/index.ts).
+function safeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ea.length; i++) diff |= ea[i] ^ eb[i];
+  return diff === 0;
+}
+
+// Fail-closed : clé absente ⇒ aucune requête acceptée.
+function isAuthorized(req: Request): boolean {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!key) return false;
+  return safeEqual(req.headers.get('Authorization') ?? '', `Bearer ${key}`);
+}
+
 Deno.serve(async (req: Request) => {
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const expectedToken = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`;
-  if (!expectedToken || authHeader !== expectedToken) {
+  if (!isAuthorized(req)) {
     return new Response('Unauthorized', { status: 401 });
   }
 

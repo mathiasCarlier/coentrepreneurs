@@ -174,14 +174,31 @@ async function sendPush(
 
 // ── Main handler ───────────────────────────────────────────────────────────
 
+// Comparaison à temps constant (voir send-push/index.ts).
+function safeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ea.length; i++) diff |= ea[i] ^ eb[i];
+  return diff === 0;
+}
+
+// Fail-closed : clé absente ⇒ aucune requête acceptée.
+function isAuthorized(req: Request): boolean {
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!key) return false;
+  return safeEqual(req.headers.get('Authorization') ?? '', `Bearer ${key}`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } });
+    return new Response('ok', {
+      headers: { 'Access-Control-Allow-Origin': 'https://app.coentrepreneurs.fr', 'Vary': 'Origin' },
+    });
   }
 
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const expectedToken = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''}`;
-  if (!expectedToken || authHeader !== expectedToken) {
+  if (!isAuthorized(req)) {
     return new Response('Unauthorized', { status: 401 });
   }
 

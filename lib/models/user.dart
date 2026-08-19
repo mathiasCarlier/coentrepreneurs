@@ -1,6 +1,21 @@
 // Roles applicatifs pour distinguer les permissions côté UI/back-end.
 enum UserRole { admin, adherent, invite }
 
+/// Normalise un rôle brut lu en base vers sa forme courte ('admin',
+/// 'adherent', 'invite').
+///
+/// La migration Firebase → Supabase a laissé deux formats côte à côte :
+/// 'admin' et 'UserRole.admin'. On coupe donc sur le '.' avant de comparer.
+///
+/// À utiliser plutôt qu'un `role.contains('admin')` : la comparaison par
+/// sous-chaîne considérerait un futur rôle 'non_admin' ou 'admin_pending'
+/// comme administrateur.
+String normalizeRole(String? raw) =>
+    (raw ?? '').trim().toLowerCase().split('.').last;
+
+/// Vrai si le rôle brut stocké en base correspond à un administrateur.
+bool isAdminRole(String? raw) => normalizeRole(raw) == 'admin';
+
 // Modèle `User` utilisé dans l'application.
 // Contient les champs affichés et persistés dans la table Supabase `users`.
 // Remarque: la conversion `role.toString().split('.').last` est utilisée
