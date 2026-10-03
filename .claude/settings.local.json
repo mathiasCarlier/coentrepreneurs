@@ -5,7 +5,9 @@
       "Bash(curl -s -m 15 -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"http://46.225.133.77:8080\")",
       "Bash(timeout 8 bash -c \"</dev/tcp/46.225.133.77/5432\")",
       "Bash(timeout 8 bash -c \"</dev/tcp/46.225.133.77/9001\")",
-      "Bash(timeout 8 bash -c \"</dev/tcp/46.225.133.77/8000\")"
+      "Bash(timeout 8 bash -c \"</dev/tcp/46.225.133.77/8000\")",
+      "Bash(ssh -p 2222 utolys@109.190.118.52:*)",
+      "Bash(ssh math@46.225.133.77:*)"
     ]
   }
 }
